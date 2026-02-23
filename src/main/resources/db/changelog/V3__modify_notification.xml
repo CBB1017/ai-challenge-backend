@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="20240723-01-modify-notification" author="moon">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="notification" columnName="attendance_status"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="notification">
+            <column name="attendance_status" type="varchar(30)" />
+        </addColumn>
+        <dropColumn tableName="notification" columnName="type"/>
+        <renameColumn tableName="notification"
+                      oldColumnName="slack_url"
+                      newColumnName="slack_info"
+                      columnDataType="varchar(300)" />
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: template-prod
+  profiles:
+    active: dev
+  slack:
+    token: xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
+
+auth:
+  mode: jwt # jwt, basic, form
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+

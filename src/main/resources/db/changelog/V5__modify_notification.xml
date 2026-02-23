@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+      http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="20240724-01-modify-notification-nullable" author="moon">
+        <!-- member_id nullable 변경 -->
+        <modifyDataType
+                tableName="notification"
+                columnName="member_id"
+                newDataType="BIGINT"/>
+        <dropNotNullConstraint
+                tableName="notification"
+                columnName="member_id"
+                columnDataType="BIGINT"/>
+
+        <!-- slack_info nullable 변경 -->
+        <modifyDataType
+                tableName="notification"
+                columnName="slack_info"
+                newDataType="varchar(300)"/>
+        <dropNotNullConstraint
+                tableName="notification"
+                columnName="slack_info"
+                columnDataType="varchar(300)"/>
+    </changeSet>
+</databaseChangeLog>

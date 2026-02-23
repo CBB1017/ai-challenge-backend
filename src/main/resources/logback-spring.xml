@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <property name="LOG_HOME" value="${LOG_HOME:-${user.home}/logs}" />
+    <property name="APP_NAME" value="template-app"/>
+
+    <!-- 개선된 패턴 (컬러 분리) -->
+    <property name="LOGBACK_PATTERN"
+              value="%cyan(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%green(%thread)] %highlight(%-5level) %magenta(%logger{20}) %yellow([traceId:%X{trace_id} spanId:%X{span_id}]) - %replace(%msg){'\r?\n','\n\t'}%n"/>
+    <!-- 콘솔 로그 (컬러풀 + 구분감) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOGBACK_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 파일 로그 (컬러 빼고, 동일 패턴) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{20} [traceId:%X{trace_id} spanId:%X{span_id}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

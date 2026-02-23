@@ -1,0 +1,101 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <!-- 1. member 테이블 -->
+    <changeSet id="20250721-01-member" author="moon">
+        <createTable tableName="member">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(200)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="password" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="slack_member_id" type="VARCHAR(30)">
+                <constraints unique="true" nullable="true"/>
+            </column>
+            <column name="first_login_yn" type="VARCHAR(1)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="created_by" type="BIGINT"/>
+            <column name="updated_by" type="BIGINT"/>
+        </createTable>
+    </changeSet>
+
+    <!-- 2. attendance 테이블 -->
+    <changeSet id="20250721-02-attendance" author="moon">
+        <createTable tableName="attendance">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="member_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_attendance_member" references="member(id)"/>
+            </column>
+            <column name="attendance_dt" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="member_name" type="VARCHAR(20)"/>
+            <column name="position" type="VARCHAR(20)"/>
+            <column name="plan_type" type="VARCHAR(20)"/>
+            <column name="plan_in_out" type="VARCHAR(20)"/>
+            <column name="plan_work_hour" type="FLOAT"/>
+            <column name="actual_type" type="VARCHAR(20)"/>
+            <column name="actual_in" type="VARCHAR(5)"/>
+            <column name="actual_out" type="VARCHAR(5)"/>
+            <column name="actual_work_hour" type="FLOAT"/>
+            <column name="late" type="VARCHAR(10)"/>
+            <column name="exception_work" type="VARCHAR(20)"/>
+            <column name="early_leave" type="VARCHAR(10)"/>
+            <column name="ot" type="FLOAT"/>
+            <column name="vacation" type="VARCHAR(20)"/>
+            <column name="approval_request" type="VARCHAR(20)"/>
+            <column name="created_at" type="DATETIME"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="created_by" type="BIGINT"/>
+            <column name="updated_by" type="BIGINT"/>
+        </createTable>
+        <addUniqueConstraint tableName="attendance"
+                             columnNames="attendance_dt,member_id"
+                             constraintName="uk_attendance_dt_member"/>
+    </changeSet>
+
+    <!-- 3. notification 테이블 -->
+    <changeSet id="20250721-03-notification" author="moon">
+        <createTable tableName="notification">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="member_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_notification_member" references="member(id)"/>
+            </column>
+            <column name="slack_url" type="VARCHAR(300)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message" type="VARCHAR(2000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="result" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="error_reason" type="VARCHAR(500)"/>
+            <column name="created_at" type="DATETIME"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="created_by" type="BIGINT"/>
+            <column name="updated_by" type="BIGINT"/>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

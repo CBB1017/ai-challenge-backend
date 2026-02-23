@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: template-dev
+  datasource:
+    url: jdbc:mysql://172.30.1.45:3306/attendance?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: brycen
+    password: brycen123**
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+#  h2:
+#    console:
+#      enabled: true
+#      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+    open-in-view: false
+  sql:
+    init:
+      mode: embedded
+      schema-locations: classpath:schema-dev.sql
+      data-locations: classpath:data-dev.sql
+jwt:
+  secret: mysecretkeymysecretkeymysecretkey12
+
+server:
+  port: 8080
+
+logging:
+  level:
+    # --- [Spring/Hibernate/MyBatis] ---
+    org.springframework: INFO                # Spring 내부 (DEBUG면 너무 시끄러움)
+    org.springframework.web: INFO            # Web 요청/응답, HandlerMapping 등
+
+    org.hibernate.SQL: DEBUG                 # SQL 로그 (쿼리)
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE # SQL 파라미터 바인딩 (파라미터 추적 원할 때만 TRACE!)
+    org.hibernate.type: WARN                 # (필요 시만 INFO/TRACE)
+
+    # --- [보안] ---
+    org.springframework.security: INFO       # Security 관련 로그
+
+    # --- [Swagger/OpenAPI] ---
+    org.springdoc: WARN                      # springdoc-openapi는 WARN 이상이면 됨
+
+    # --- [JWT/보안] ---
+    io.jsonwebtoken: WARN
+
+    # --- [오픈텔레메트리/관측] ---
+    io.opentelemetry: WARN
+
+    # --- [테스트용 H2] ---
+    org.h2: WARN
+
+    # --- [노이즈 방지: JMX/RMI/Serialization] ---
+    java.io.serialization: WARN
+    sun.rmi: WARN
+    javax.management: WARN
+    java.management: WARN
+    jmx: WARN
+
+    # --- [MapStruct, Lombok, 기타] ---
+    org.mapstruct: WARN
+    org.projectlombok: WARN
+    com.googlecode.owasp: WARN

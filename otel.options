@@ -1,0 +1,8 @@
+-javaagent:opentelemetry-javaagent.jar
+-Dotel.service.name=brycen-template
+# otel-coll을 사용한다면
+-Dotel.exporter.otlp.endpoint=http://localhost:4317
+# 사용하지 않는다면 아래 내용들 추가
+-Dotel.traces.exporter=none
+-Dotel.metrics.exporter=none
+-Dotel.logs.exporter=none
