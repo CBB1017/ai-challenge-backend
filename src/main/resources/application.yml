@@ -4,8 +4,7 @@ spring:
   profiles:
     active: dev
   slack:
-    token: xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
-
+    token: test #xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
 auth:
   mode: jwt # jwt, basic, form
 springdoc:
@@ -14,4 +13,6 @@ springdoc:
     enabled: true
   api-docs:
     path: /v3/api-docs
-
+app:
+  gemini:
+    model: gemini-3-flash-preview

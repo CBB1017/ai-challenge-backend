@@ -82,15 +82,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private boolean authenticate(
         String jwt,
-        String username,
+        String email,
         HttpServletRequest request,
         HttpServletResponse response
     ) throws IOException
     {
-        if (username == null || SecurityContextHolder.getContext().getAuthentication() != null) {
-            return true; // 이미 인증된 사용자이거나 username 없음(앞에서 이미 에러 리턴)
+        if (email == null || SecurityContextHolder.getContext().getAuthentication() != null) {
+            return true; // 이미 인증된 사용자이거나 email 없음(앞에서 이미 에러 리턴)
         }
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
         if (jwtTokenProvider.validateToken(jwt, userDetails)) {
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 userDetails,

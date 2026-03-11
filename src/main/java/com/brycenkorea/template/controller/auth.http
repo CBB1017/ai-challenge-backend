@@ -1,0 +1,24 @@
+### GET request to example server
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "name": "bc.mun@brycenkorea.co.kr",
+  "password": "0177"
+}
+
+> {%
+    client.global.set("access_token", response.body.token);
+%}
+
+### Call secured API
+POST http://localhost:8080/api/ai/ask
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "prompt": "너는 이제 나의 말을 전달하여야 할것이다."
+}
+
+### call playwright
+GET http://localhost:3000
