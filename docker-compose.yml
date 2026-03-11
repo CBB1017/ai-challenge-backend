@@ -1,17 +1,27 @@
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: groupware-mysql
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: groupware-postgres
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: groupware
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: apppass
+      POSTGRES_DB: groupware
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppass
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+  redis:
+    image: redis:7-alpine
+    container_name: groupware-redis
+    restart: always
+    command: redis-server --requirepass redispass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
     networks:
       - backend
   chrome:
@@ -64,8 +74,8 @@ services:
 #       - backend
 #
 volumes:
-  mysql-data:
-
+  postgres-data:
+  redis-data:
 networks:
   backend:
     driver: bridge

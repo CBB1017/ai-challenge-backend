@@ -10,10 +10,9 @@ import org.springframework.context.annotation.Configuration;
 public class ChatMemoryConfig {
     @Bean
     public ChatMemory chatMemory(ChatMemoryRepository chatMemoryRepository) {
-        // 우리는 그저 '최대 10개까지만 기억해'라는 껍데기(Window)만 씌워주면 됩니다.
         return MessageWindowChatMemory.builder()
                                       .chatMemoryRepository(chatMemoryRepository)
-                                      .maxMessages(10)
+                                      .maxMessages(20) // 최신 20개 메시지만 기억
                                       .build();
     }
 }

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS member (
-                                      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                      id BIGSERIAL PRIMARY KEY,
                                       name VARCHAR(200) NOT NULL,
     email VARCHAR(200) NOT NULL UNIQUE,
     password VARCHAR(200) NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS member (
     updated_by BIGINT
     );
 CREATE TABLE IF NOT EXISTS attendance (
-                                          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                          id BIGSERIAL PRIMARY KEY,
                                           member_id BIGINT NOT NULL,                -- Member FK (필수)
                                           attendance_dt VARCHAR(10) NOT NULL,       -- 날짜
     plan_type VARCHAR(20),                    -- 계획 근무 유형
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     UNIQUE KEY uk_attendance_dt_member (attendance_dt, member_id)
     );
 CREATE TABLE IF NOT EXISTS notification (
-                                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                            id BIGSERIAL PRIMARY KEY,
                                             user_id BIGINT NOT NULL,
                                             slackInfo VARCHAR(300) NOT NULL,
     type VARCHAR(20) NOT NULL,

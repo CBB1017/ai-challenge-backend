@@ -5,7 +5,6 @@
         http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
 
-    <!-- 1. member 테이블 -->
     <changeSet id="20250721-01-member" author="moon">
         <createTable tableName="member">
             <column name="id" type="BIGINT" autoIncrement="true">
@@ -26,14 +25,13 @@
             <column name="first_login_yn" type="VARCHAR(1)">
                 <constraints nullable="false"/>
             </column>
-            <column name="created_at" type="DATETIME"/>
-            <column name="updated_at" type="DATETIME"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="BIGINT"/>
             <column name="updated_by" type="BIGINT"/>
         </createTable>
     </changeSet>
 
-    <!-- 2. attendance 테이블 -->
     <changeSet id="20250721-02-attendance" author="moon">
         <createTable tableName="attendance">
             <column name="id" type="BIGINT" autoIncrement="true">
@@ -60,8 +58,8 @@
             <column name="ot" type="FLOAT"/>
             <column name="vacation" type="VARCHAR(20)"/>
             <column name="approval_request" type="VARCHAR(20)"/>
-            <column name="created_at" type="DATETIME"/>
-            <column name="updated_at" type="DATETIME"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="BIGINT"/>
             <column name="updated_by" type="BIGINT"/>
         </createTable>
@@ -70,7 +68,6 @@
                              constraintName="uk_attendance_dt_member"/>
     </changeSet>
 
-    <!-- 3. notification 테이블 -->
     <changeSet id="20250721-03-notification" author="moon">
         <createTable tableName="notification">
             <column name="id" type="BIGINT" autoIncrement="true">
@@ -92,8 +89,8 @@
                 <constraints nullable="false"/>
             </column>
             <column name="error_reason" type="VARCHAR(500)"/>
-            <column name="created_at" type="DATETIME"/>
-            <column name="updated_at" type="DATETIME"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="BIGINT"/>
             <column name="updated_by" type="BIGINT"/>
         </createTable>

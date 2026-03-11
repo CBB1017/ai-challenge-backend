@@ -4,9 +4,11 @@ import com.brycenkorea.template.tools.PythonCrawlerTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Service;
 
 @Service
+@DependsOn("liquibase")
 public class GeminiService {
 
     private final ChatClient chatClient;
