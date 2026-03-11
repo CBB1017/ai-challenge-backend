@@ -5,6 +5,21 @@ spring:
     active: dev
   slack:
     token: test #xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
+  ai:
+    google:
+      genai:
+        chat:
+          options:
+            model: gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+        api-key: ${GEMINI_API_KEY}
+    retry:
+      max-attempts: 10
+      on-http-codes: 429,503
+      exclude-on-http-codes: 401,403
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 30s
 auth:
   mode: jwt # jwt, basic, form
 springdoc:
@@ -13,6 +28,3 @@ springdoc:
     enabled: true
   api-docs:
     path: /v3/api-docs
-app:
-  gemini:
-    model: gemini-3-flash-preview

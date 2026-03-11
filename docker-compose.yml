@@ -1,24 +1,71 @@
-version: "3.8"
-
 services:
-  attendance-app:
-    image: "${IMAGE_NAME}:${IMAGE_TAG}"
-    container_name: attendance_back
-    ports:
-      - "8080:8080"
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/attendance
-      TZ: Asia/Seoul
-    networks:
-      - attendance
+  mysql:
+    image: mysql:8.4
+    container_name: groupware-mysql
     restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: groupware
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - backend
+  chrome:
+    image: browserless/chrome:latest
+    restart: always
+    environment:
+      - TOKEN=01QWI6OUT42U8
+      - TZ=Asia/Seoul
+      - MAX_CONCURRENT_SESSIONS=10
+      - CONNECTION_TIMEOUT=10000
+    ports:
+      - "3001:3000"
     logging:
       driver: json-file
       options:
-        max-size: "50m"
-        max-file: "3"
+        max-size: "20m"   # 로그 파일 1개당 최대 20MB
+        max-file: "5"     # 최대 5개 파일까지만 보관
+    networks:
+      - backend
+        #  playwright-mcp:
+        #    image: mcp/playwright:latest
+        #    container_name: playwright-mcp
+        #    command: >
+        #      --transport http
+        #      --port 3000
+        #    ports:
+        #      - "3000:3000"
+        #    restart: unless-stopped
+        #    networks:
+      #      - backend
+      #    # ?대?留?李⑤떒???먰븯硫??꾨옒泥섎읆 ?ㅽ듃?뚰겕 ?뺤콉 異붽? 怨좊젮
+    # cap_drop:
+    #   - ALL
+
+#   spring-app:
+#     build: .
+#     container_name: spring-app
+#     restart: always
+#     depends_on:
+#       - mysql
+#       - playwright-mcp
+#     ports:
+#       - "8080:8080"
+#     environment:
+#       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/groupware
+#       SPRING_DATASOURCE_USERNAME: appuser
+#       SPRING_DATASOURCE_PASSWORD: apppass
+#       MCP_BASE_URL: http://playwright-mcp:3001
+#     networks:
+#       - backend
+#
+volumes:
+  mysql-data:
 
 networks:
-  attendance:
-    external: true
+  backend:
+    driver: bridge

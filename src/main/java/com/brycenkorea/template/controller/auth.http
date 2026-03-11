@@ -17,7 +17,8 @@ Authorization: Bearer {{access_token}}
 Content-Type: application/json
 
 {
-  "prompt": "너는 이제 나의 말을 전달하여야 할것이다."
+  "prompt": "근태 현황을 알려줘봐"
+
 }
 
 ### call playwright
