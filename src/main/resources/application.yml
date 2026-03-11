@@ -10,7 +10,7 @@ spring:
       genai:
         chat:
           options:
-            model: gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+            model: gemini-2.5-flash-lite #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
         api-key: ${GEMINI_API_KEY}
     retry:
       max-attempts: 10
@@ -20,6 +20,11 @@ spring:
         initial-interval: 2s
         multiplier: 2
         max-interval: 30s
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: always
 auth:
   mode: jwt # jwt, basic, form
 springdoc:

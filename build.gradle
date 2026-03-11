@@ -42,6 +42,9 @@ dependencies {
     // Spring AI
 //    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
     implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
+    implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory'
+    implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc'
+
     // 2. 기존에 쓰시던 순수 구글 SDK (이건 그대로 두셔도 됩니다)
     implementation 'com.google.genai:google-genai:1.42.0'
     // Spring AI의 API 재시도(Retry) 기능을 위한 필수 라이브러리
