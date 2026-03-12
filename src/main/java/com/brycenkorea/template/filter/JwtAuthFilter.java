@@ -4,135 +4,125 @@ import com.brycenkorea.template.dto.api.ApiResultCode;
 import com.brycenkorea.template.dto.api.CommonResponse;
 import com.brycenkorea.template.security.CustomUserDetailsService;
 import com.brycenkorea.template.util.JwtTokenProvider;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.server.PathContainer;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.AntPathMatcher;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
+import reactor.core.publisher.Mono;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 
 import static com.brycenkorea.template.config.DynamicSecurityConfig.WHITELIST;
 
 @Component
 @Slf4j
-public class JwtAuthFilter extends OncePerRequestFilter {
+@RequiredArgsConstructor
+public class JwtAuthFilter implements WebFilter { // WebFilter로 변경
+
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
-    private static final AntPathMatcher pathMatcher = new AntPathMatcher();
-
-    public JwtAuthFilter(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService userDetailsService) {
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.userDetailsService = userDetailsService;
-    }
+    @Autowired
+    JsonMapper jsonMapper;
+    // 1. 문자열 배열을 PathPattern 리스트로 미리 파싱 (매번 파싱하면 성능 저하)
+    private static final List<PathPattern> WHITELIST_PATTERNS = Arrays.stream(WHITELIST)
+                                                                      .map(pattern -> new PathPatternParser().parse(
+                                                                          pattern))
+                                                                      .toList();
 
     @Override
-    protected void doFilterInternal(
-        HttpServletRequest request,
-        @NonNull HttpServletResponse response,
-        @NonNull FilterChain chain
-    ) throws ServletException, IOException
-    {
-        if (isWhitelisted(request.getRequestURI())) {
-            chain.doFilter(request, response);
-            return;
-        }
-        response.setContentType("application/json;charset=UTF-8");
+    public @NonNull Mono<Void> filter(ServerWebExchange exchange, @NonNull WebFilterChain chain) {
+        String path = exchange.getRequest().getURI().getPath();
 
-        if (!hasValidAuthHeader(request)) {
-            sendError(
-                response,
-                HttpServletResponse.SC_UNAUTHORIZED,
+        // 1. Whitelist 확인
+        if (isWhitelisted(path)) {
+            return chain.filter(exchange);
+        }
+
+        // 2. Authorization 헤더 확인
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return sendError(
+                exchange,
+                HttpStatus.UNAUTHORIZED,
                 ApiResultCode.UNAUTHORIZED,
                 "Authorization header is missing or invalid"
             );
-            return;
         }
 
-        String jwt = jwtTokenProvider.extractJwt(request);
-        String username = parseJwtUsername(jwt, response);
-        if (username == null) {
-            return; // 이미 에러 응답을 내려서 종료됨
-        }
+        String jwt = authHeader.substring(7);
 
-        if (!authenticate(jwt, username, request, response)) {
-            return; // 실패 시 응답 내려서 종료
-        }
+        try {
+            String username = jwtTokenProvider.getUsername(jwt);
 
-        chain.doFilter(request, response);
+            // WebFlux에서는 UserDetails 로드도 비동기(Mono)로 처리해야 하지만,
+            // 일단 기존 userDetailsService가 동기라면 publishOn 등으로 감싸거나
+            // ReactiveUserDetailsService로 전환해야 합니다.
+            return userDetailsService.findByUsername(username) // Mono<UserDetails> 반환 가정
+                                     .flatMap(userDetails -> {
+                                         if (jwtTokenProvider.validateToken(jwt, userDetails)) {
+                                             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                                 userDetails,
+                                                 null,
+                                                 userDetails.getAuthorities()
+                                             );
+                                             // SecurityContext를 Reactive용으로 저장하고 다음 필터로 진행
+                                             return chain.filter(exchange)
+                                                         .contextWrite(ReactiveSecurityContextHolder.withAuthentication(
+                                                             auth));
+                                         }
+                                         return sendError(
+                                             exchange,
+                                             HttpStatus.UNAUTHORIZED,
+                                             ApiResultCode.UNAUTHORIZED,
+                                             "Invalid JWT token"
+                                         );
+                                     })
+                                     .switchIfEmpty(sendError(
+                                         exchange,
+                                         HttpStatus.UNAUTHORIZED,
+                                         ApiResultCode.UNAUTHORIZED,
+                                         "User not found"
+                                     ));
+
+        } catch (Exception e) {
+            return sendError(exchange, HttpStatus.BAD_REQUEST, ApiResultCode.INVALID_TOKEN, "JWT parsing failed");
+        }
     }
 
     private boolean isWhitelisted(String uri) {
-        return WHITELIST.stream().anyMatch(pattern -> pathMatcher.match(pattern, uri));
+        // 2. 요청 URI를 PathContainer로 변환
+        PathContainer pathContainer = PathContainer.parsePath(uri);
+
+        // 3. 미리 파싱된 패턴들과 매칭 확인
+        return WHITELIST_PATTERNS.stream()
+                                 .anyMatch(pattern -> pattern.matches(pathContainer));
     }
 
-    private boolean hasValidAuthHeader(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        return authHeader != null && authHeader.startsWith("Bearer ");
-    }
+    private Mono<Void> sendError(ServerWebExchange exchange, HttpStatus status, ApiResultCode code, String message) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(status);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
-    private boolean authenticate(
-        String jwt,
-        String email,
-        HttpServletRequest request,
-        HttpServletResponse response
-    ) throws IOException
-    {
-        if (email == null || SecurityContextHolder.getContext().getAuthentication() != null) {
-            return true; // 이미 인증된 사용자이거나 email 없음(앞에서 이미 에러 리턴)
-        }
-        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-        if (jwtTokenProvider.validateToken(jwt, userDetails)) {
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                userDetails,
-                null,
-                userDetails.getAuthorities()
-            );
-            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(auth);
-            return true;
-        } else {
-            sendError(
-                response,
-                HttpServletResponse.SC_UNAUTHORIZED,
-                ApiResultCode.UNAUTHORIZED,
-                "JWT token is invalid or expired"
-            );
-            return false;
-        }
-    }
-
-    public String parseJwtUsername(String jwt, HttpServletResponse response) throws IOException {
-        try {
-            return jwtTokenProvider.getUsername(jwt);
-        } catch (Exception e) {
-            sendError(
-                response,
-                HttpServletResponse.SC_BAD_REQUEST,
-                ApiResultCode.INVALID_TOKEN,
-                "JWT token parsing failed: " + e.getMessage()
-            );
-            return null;
-        }
-    }
-    private void sendError(
-        HttpServletResponse response,
-        int httpStatus,
-        ApiResultCode code,
-        String message
-    ) throws IOException {
-        log.warn("[JWT-AUTH][status:{}][code:{}] {}", httpStatus, code, message);
-        response.setStatus(httpStatus);
         CommonResponse<Void> resBody = CommonResponse.error(code, message);
-        response.getWriter().write(new ObjectMapper().writeValueAsString(resBody));
+        byte[] bytes = jsonMapper.writeValueAsString(resBody).getBytes(StandardCharsets.UTF_8);
+        DataBuffer buffer = response.bufferFactory().wrap(bytes);
+        return response.writeWith(Mono.just(buffer));
     }
 }

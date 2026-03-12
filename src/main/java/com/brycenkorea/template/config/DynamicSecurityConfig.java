@@ -5,79 +5,49 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.filter.CorsFilter;
-
-import java.util.List;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
 @Profile("dev")
 @RequiredArgsConstructor
+@EnableWebFluxSecurity // WebFlux 보안 활성화
 public class DynamicSecurityConfig {
 
-    public static final List<String> WHITELIST = List.of(
-        "/swagger-ui/**",
-        "/swagger-ui/index.html",
-        "/v3/api-docs/**",
-        "/swagger-resources/**",
-        "/webjars/**",
-        "/api/auth/login",
-        "/api/crawling/**"
-        // 기타 허용할 경로들
-    );
+    public static final String[] WHITELIST = {
+        "/swagger-ui/**", "/v3/api-docs/**", "/api/auth/login", "/api/crawling/**", "/api/ai/**"
+    };
+
     private final AuthModeProperties authModeProperties;
-    private final JwtAuthFilter jwtAuthFilter;
-    private final UserDetailsService userDetailsService;
-    private final CorsFilter corsFilter;
+    private final JwtAuthFilter jwtAuthFilter; // 앞에서 만든 WebFilter 버전
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
-
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         String mode = authModeProperties.getMode();
 
-        // 공통: API 허용 설정
-        http.authorizeHttpRequests(auth -> auth.requestMatchers(WHITELIST.toArray(String[]::new))
-                                               .permitAll()
-                                               .anyRequest()
-                                               .authenticated());
-        http.addFilterBefore(corsFilter, UsernamePasswordAuthenticationFilter.class);
+        // CSRF 비활성화 (Stateless API 기준)
+        http.csrf(ServerHttpSecurity.CsrfSpec::disable);
+
+        // 권한 설정
+        http.authorizeExchange(exchanges -> exchanges.pathMatchers(WHITELIST)
+                                                     .permitAll()
+                                                     .anyExchange()
+                                                     .authenticated());
 
         if ("jwt".equalsIgnoreCase(mode)) {
-            // JWT 인증 방식만 활성
-            http.csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(
-                    jwtAuthFilter,
-                    UsernamePasswordAuthenticationFilter.class
-                )
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable);
+            http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance()) // Stateless
+                .addFilterAt(jwtAuthFilter, SecurityWebFiltersOrder.AUTHENTICATION);
         } else if ("basic".equalsIgnoreCase(mode)) {
-            // Basic Auth만 활성 (필터 생성 요망)
-            http.csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .httpBasic(withDefaults())
-                .formLogin(AbstractHttpConfigurer::disable);
-        } else { // "form" (default)
-            http.csrf(AbstractHttpConfigurer::disable)
-                .formLogin(withDefaults())
-                .httpBasic(AbstractHttpConfigurer::disable);
+            http.httpBasic(withDefaults());
+        } else {
+            http.formLogin(withDefaults());
         }
 
-        http.userDetailsService(userDetailsService);
         return http.build();
     }
 }

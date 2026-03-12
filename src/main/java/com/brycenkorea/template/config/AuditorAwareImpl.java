@@ -1,8 +1,8 @@
 package com.brycenkorea.template.config;
 
 import com.brycenkorea.template.security.CustomUserDetails;
+import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.AuditorAware;
-import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -12,8 +12,7 @@ import java.util.Optional;
 @Component
 public class AuditorAwareImpl implements AuditorAware<Long> {
     @Override
-    @NonNull
-    public Optional<Long> getCurrentAuditor() {
+    public @NonNull Optional<Long> getCurrentAuditor() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()) {

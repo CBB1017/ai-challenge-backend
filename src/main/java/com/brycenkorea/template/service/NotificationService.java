@@ -9,6 +9,7 @@ import com.brycenkorea.template.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,25 +22,38 @@ import java.util.Optional;
 public class NotificationService {
     private final NotificationRepository notificationRepository;
 
-    public boolean shouldSendAlert(Member member, AttendanceStatus status) {
+    /**
+     * 알림을 보내야 하는지 여부를 판단 (비동기 반환)
+     * 결과가 없으면(Empty) 알림을 보내야 하므로 true 반환
+     */
+    public Mono<Boolean> shouldSendAlert(Member member, AttendanceStatus status) {
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        Optional<Notification> notification = notificationRepository.findFirstByMemberIdAndAttendanceStatusAndResultAndCreatedAtAfterOrderByCreatedAtDesc(
-            member.getId(), status, NotificationResult.SUCCESS.name(), todayStart
-        );
-        notification.ifPresent(value -> log.info("noti => {}", value));
 
-        // 'SUCCESS'만 조회
-        return notification.isEmpty();
+        return notificationRepository.findLatestNotification(
+                                         member.getId(),
+                                         status,
+                                         NotificationResult.SUCCESS.name(),
+                                         todayStart
+                                     )
+                                     .doOnNext(value -> log.info("기존 알림 존재 => {}", value))
+                                     .map(value -> false)          // 데이터가 있으면 이미 보낸 것이므로 false
+                                     .defaultIfEmpty(true);        // 데이터가 없으면 새로 보내야 하므로 true
     }
 
-    public void saveNotification(NotificationSendDto dto) {
+    /**
+     * 알림 이력 저장
+     */
+    public Mono<Notification> saveNotification(NotificationSendDto dto) {
         Notification notification = new Notification();
-        notification.setMember(dto.member());
+        // member 객체 전체가 아닌 ID만 세팅 (R2DBC 리팩토링 반영)
+        notification.setMemberId(dto.member().getId());
         notification.setAttendanceStatus(dto.status());
         notification.setMessage(dto.message());
         notification.setResult(dto.result().name());
         notification.setErrorReason(dto.errorReason());
         notification.setSlackInfo(dto.member().getSlackMemberId());
-        notificationRepository.save(notification);
+
+        return notificationRepository.save(notification)
+                                     .doOnSuccess(saved -> log.info("알림 이력 저장 완료: {}", saved.getId()));
     }
 }

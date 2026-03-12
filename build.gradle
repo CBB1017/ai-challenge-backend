@@ -25,16 +25,20 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
-
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-jackson'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 //    implementation 'com.mysql:mysql-connector-j'
     runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'org.postgresql:r2dbc-postgresql'
     implementation 'org.springframework.boot:spring-boot-starter-aspectj'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
-	implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.9'
+
+    // Now declare Jackson modules WITHOUT versions
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'io.opentelemetry:opentelemetry-api:1.51.0'
 //	implementation 'org.liquibase:liquibase-core:4.33.0'
     implementation 'org.springframework.boot:spring-boot-starter-liquibase'
@@ -44,7 +48,6 @@ dependencies {
 //    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
     implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
     implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory'
-    implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc'
     implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory-repository-redis'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     // 2. 기존에 쓰시던 순수 구글 SDK (이건 그대로 두셔도 됩니다)
@@ -63,6 +66,7 @@ dependencies {
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 
 	testImplementation 'io.rest-assured:rest-assured:5.5.5'
+	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
 	testImplementation 'org.mockito:mockito-core:5.2.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'

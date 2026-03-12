@@ -1,74 +1,72 @@
 package com.brycenkorea.template.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
-@Table(
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"attendance_dt", "member_id"})
-    }
-)
+@Table("attendance") // @Entity 대신 @Table
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString
-@EqualsAndHashCode(callSuper = false)
-public class Attendance  extends BaseEntity {
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    @JsonBackReference
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+public class Attendance extends BaseEntity {
+
+    // JPA의 @ManyToOne 대신 외래키 ID를 직접 가집니다.
+    @Column("member_id")
+    private Long memberId;
+
+    // 필요 시 조회 후 채워넣기 위한 비즈니스 로직용 필드 (DB 저장 안됨)
+    @Transient
     private Member member;
 
-    @Column(name = "attendance_dt", length = 10, nullable = false)
-    private String attendanceDt;     // 날짜
+    @Column("attendance_dt")
+    private String attendanceDt;
 
-    @Column(name = "member_name", length = 20)
-    private String memberName;         // 성명
+    @Column("member_name")
+    private String memberName;
 
-    @Column(name = "position", length = 20)
-    private String position;         // 직급
+    @Column("position")
+    private String position;
 
-    @Column(name = "plan_type", length = 20)
-    private String planType;         // 계획 근무 유형
+    @Column("plan_type")
+    private String planType;
 
-    @Column(name = "plan_in_out", length = 20)
-    private String planInOut;        // 계획 출퇴근 시간 (ex: 08:30~17:30)
+    @Column("plan_in_out")
+    private String planInOut;
 
-    @Column(name = "plan_work_hour")
-    private Float planWorkHour;      // 계획 근무시간
+    @Column("plan_work_hour")
+    private Float planWorkHour;
 
-    @Column(name = "actual_type", length = 20)
-    private String actualType;       // 실제 근무 유형
+    @Column("actual_type")
+    private String actualType;
 
-    @Column(name = "actual_in", length = 5)
-    private String actualIn;         // 실제 출근 시간
+    @Column("actual_in")
+    private String actualIn;
 
-    @Column(name = "actual_out", length = 5)
-    private String actualOut;        // 실제 퇴근 시간
+    @Column("actual_out")
+    private String actualOut;
 
-    @Column(name = "actual_work_hour")
-    private String actualWorkHour;    // 실제 근무시간
+    @Column("actual_work_hour")
+    private String actualWorkHour;
 
-    @Column(name = "late", length = 10)
-    private String late;             // 지각 여부 ("" or 값)
+    @Column("late")
+    private String late;
 
-    @Column(name = "exception_work", length = 20)
-    private String exceptionWork;    // 예외 근무
+    @Column("exception_work")
+    private String exceptionWork;
 
-    @Column(name = "early_leave", length = 10)
-    private String earlyLeave;       // 조퇴 여부
+    @Column("early_leave")
+    private String earlyLeave;
 
-    @Column(name = "ot")
-    private Float ot;                // 연장근무 시간
+    @Column("ot")
+    private Float ot;
 
-    @Column(name = "vacation", length = 20)
-    private String vacation;         // 휴가
+    @Column("vacation")
+    private String vacation;
 
-    @Column(name = "approval_request", length = 20)
-    private String approvalRequest;  // 승인요청
+    @Column("approval_request")
+    private String approvalRequest;
 }

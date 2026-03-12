@@ -3,25 +3,34 @@ package com.brycenkorea.template.controller;
 import com.brycenkorea.template.dto.response.PromptRequest;
 import com.brycenkorea.template.dto.response.PromptResponse;
 import com.brycenkorea.template.service.GeminiService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
+@Slf4j
 public class GeminiController {
 
     private final GeminiService geminiService;
 
-    @PostMapping("/ask")
-    public ResponseEntity<PromptResponse> ask(@RequestBody PromptRequest request) {
-
-        String result = geminiService.ask(request.prompt());
-
-        return ResponseEntity.ok(new PromptResponse(result));
+    @PostMapping(
+        value = "/ask",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public Flux<PromptResponse> ask(@RequestBody @Valid PromptRequest promptRequest) {
+        return geminiService.askStream(promptRequest.prompt())
+                            .map(PromptResponse::new)
+                            .doOnNext(response ->
+                                log.info("Gemini Response Chunk: {}", response.response())
+                            ); // 데이터 조각이 흐를 때마다 로그 출력
     }
 }
