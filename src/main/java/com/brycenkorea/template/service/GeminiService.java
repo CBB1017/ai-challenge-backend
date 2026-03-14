@@ -1,27 +1,27 @@
 package com.brycenkorea.template.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.ai.rag.retrieval.search.DocumentRetriever;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class GeminiService {
     private final ChatClient chatClient;
+    private final ChatClient documentRetriever; // Config에서 등록한 빈 주입
 
-    // 반환 타입을 String에서 Flux<String>으로 변경
-    public Flux<String> askStream(String prompt) {
-        if (prompt == null || prompt.isBlank()) {
-            throw new IllegalArgumentException("Prompt must not be empty");
+    public Flux<String> askStream(String prompt, String mode) {
+        if ("KNOWLEDGE".equalsIgnoreCase(mode)) {
+            return documentRetriever.prompt().user(prompt).stream().content();
         }
-        var conversationId = "678";
 
-        return chatClient.prompt()
-                         .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
-                         .user(prompt)
-                         .stream()
-                         .content();
+        log.info("normal");
+        // 일반 모드
+        return chatClient.prompt().user(prompt).stream().content();
     }
 }

@@ -28,9 +28,17 @@ public class ChatMemoryConfig {
                                       .maxMessages(20) // 최신 20개 메시지만 기억
                                       .build();
     }
-
+    // 3. 기본 ChatClient (RAG Advisor 제외)
     @Bean
-    public ChatClient chatClient(
+    public ChatClient chatClient(ChatClient.Builder builder, PythonCrawlerTools crawlerTools, ChatMemory chatMemory) {
+        return builder.defaultSystem("너는 우리 회사의 친절하고 똑똑한 AI 비서야. 사내 정보가 필요하면 반드시 제공된 도구를 사용해서 확인한 뒤 답변해줘.")
+                      .defaultTools(crawlerTools)
+                      .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+                      .build();
+    }
+    // 2. RAG용 Retriever (나중에 서비스에서 갖다 쓸 수 있게 빈으로 등록)
+    @Bean
+    public ChatClient documentRetriever(
         ChatClient.Builder builder,
         PythonCrawlerTools crawlerTools,
         ChatMemory chatMemory,
@@ -41,7 +49,7 @@ public class ChatMemoryConfig {
         // 1. Retriever 설정 (기존 SearchRequest 대체)
         DocumentRetriever documentRetriever = VectorStoreDocumentRetriever.builder()
                                                                           .vectorStore(pgVectorStore)
-                                                                          .similarityThreshold(0.8d)
+                                                                          .similarityThreshold(0.5d)
                                                                           .topK(3)
                                                                           .build();
 
@@ -84,7 +92,7 @@ public class ChatMemoryConfig {
                                                                               // 추후 Advanced RAG가 필요하다면 여기에 .queryTransformers() 등을 쉽게 추가할 수 있습니다.
                                                                               .build();
 
-        return builder.defaultSystem("너는 우리 회사의 친절하고 똑똑한 AI 비서야. 사내 정보가 필요하면 반드시 제공된 도구를 사용해서 확인한 뒤 답변해줘.")
+        return builder.defaultSystem("너는 사내 지식 비서야. 아래 제공된 컨텍스트(Context)를 바탕으로 정직하게 답변해줘.")
                       .defaultTools(crawlerTools)
                       .defaultAdvisors(List.of(
                           MessageChatMemoryAdvisor.builder(chatMemory).build(),
@@ -92,6 +100,5 @@ public class ChatMemoryConfig {
                       ))
                       .build();
     }
-
-
 }
+
