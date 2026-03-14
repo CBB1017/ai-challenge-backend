@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: groupware-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: groupware
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    container_name: groupware-redis
+    restart: always
+    # command 대신 environment를 쓰면 스프링이 비밀번호를 자동 인식
+    environment:
+      REDIS_PASSWORD: redispass
+    command: /bin/sh -c 'redis-server --requirepass $$REDIS_PASSWORD'
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
+
+  chrome:
+    image: browserless/chrome:latest
+    container_name: groupware-chrome
+    restart: always
+    environment:
+      - TOKEN=01QWI6OUT42U8
+      - TZ=Asia/Seoul
+      - MAX_CONCURRENT_SESSIONS=10
+      - CONNECTION_TIMEOUT=10000
+    ports:
+      - "3001:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - backend
+
+volumes:
+  postgres-data:
+  redis-data:
+networks:
+  backend:
+    driver: bridge

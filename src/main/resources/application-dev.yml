@@ -1,11 +1,11 @@
 spring:
   application:
     name: template-dev
-#  datasource:
-#    url: jdbc:postgresql://localhost:5432/groupware
-#    username: appuser
-#    password: apppass
-#    driver-class-name: org.postgresql.Driver
+  datasource:
+    url: jdbc:postgresql://localhost:5432/groupware
+    username: appuser
+    password: apppass
+    driver-class-name: org.postgresql.Driver
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/groupware
     username: appuser

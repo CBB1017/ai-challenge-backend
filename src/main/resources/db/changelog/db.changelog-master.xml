@@ -10,5 +10,6 @@
     <include file="db/changelog/V3__modify_notification.xml"/>
     <include file="db/changelog/V4__modify_attendance.xml"/>
     <include file="db/changelog/V5__modify_notification.xml"/>
+    <include file="db/changelog/V6__add_pgvector.xml"/>
 
 </databaseChangeLog>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="20260314-01-setup-extensions" author="moon">
+        <sql>
+            CREATE EXTENSION IF NOT EXISTS vector;
+            CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+        </sql>
+    </changeSet>
+
+    <changeSet id="20260314-02-force-drop-table" author="moon">
+        <sql>
+            DROP TABLE IF EXISTS vector_store CASCADE;
+        </sql>
+    </changeSet>
+
+    <changeSet id="20260314-03-create-vector-store-final" author="moon">
+        <createTable tableName="vector_store">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="content" type="TEXT"/>
+            <column name="metadata" type="JSONB"/>
+        </createTable>
+        <sql>
+            -- 인덱스를 걸지 않으면 차원 수 제한 없이 저장이 가능합니다.
+            ALTER TABLE vector_store ADD COLUMN embedding vector(3072);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -6,11 +6,24 @@ spring:
   slack:
     token: test #xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
   ai:
+#    model:
+#      embedding:
+#        text: google-genai
     google:
       genai:
         chat:
           options:
             model: gemini-2.5-flash-lite #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+        embedding:
+          text:
+            options:
+              model: gemini-embedding-2-preview
+#              model: models/text-embedding-004
+          project-id: "unused-project" # dummy
+          location: "us-central1" # 기본값으로 넣어둡니다.
+          api-key: ${GEMINI_API_KEY}
+        project-id: "unused-project" # dummy
+        location: "us-central1" # 기본값으로 넣어둡니다.
         api-key: ${GEMINI_API_KEY}
     retry:
       max-attempts: 10
@@ -25,13 +38,19 @@ spring:
         redis:
           key-prefix: "groupware_chat:" # Redis 키 이름 앞에 붙을 접두사
           time-to-live: "7d" # 7일 지나면 대화 기록이 DB에서 알아서 증발합니다!
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
   data:
     redis:
       host: localhost
       port: 6379
       username: default
       password: redispass
-      database: 0
+      client-type: lettuce
   jackson:
     default-property-inclusion: non_null
     serialization:
