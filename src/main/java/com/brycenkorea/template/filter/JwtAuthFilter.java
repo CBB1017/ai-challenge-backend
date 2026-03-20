@@ -85,9 +85,6 @@ public class JwtAuthFilter implements WebFilter {
                                                  userDetails, null, userDetails.getAuthorities()
                                              );
 
-                                             // 💡 [핵심] Reactive Context가 끊길 것을 대비해 exchange 속성에 물리적으로 저장
-                                             exchange.getAttributes().put("SECURE_AUTH", auth);
-
                                              return chain.filter(exchange)
                                                          .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
                                          }

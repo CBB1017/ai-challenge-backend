@@ -25,7 +25,7 @@ public class ChatMemoryConfig {
     public ChatMemory chatMemory(RedisChatMemoryRepository redisChatMemoryRepository) {
         return MessageWindowChatMemory.builder()
                                       .chatMemoryRepository(redisChatMemoryRepository)
-                                      .maxMessages(20) // 최신 20개 메시지만 기억
+                                      .maxMessages(40) // 최신 20개 메시지만 기억
                                       .build();
     }
     // 3. 기본 ChatClient (RAG Advisor 제외)

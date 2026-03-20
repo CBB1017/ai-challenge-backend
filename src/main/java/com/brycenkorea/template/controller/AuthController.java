@@ -11,10 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import java.util.Collections;
@@ -57,5 +54,13 @@ public class AuthController {
             return ResponseEntity.ok()
                                  .header(HttpHeaders.SET_COOKIE, cookie.toString()) // 💡 헤더에 추가!
                                  .body(Collections.singletonMap("token", jwt));        });
+    }
+
+    @GetMapping("/check")
+    public Mono<ResponseEntity<Map<String, String>>> checkAuth(org.springframework.security.core.Authentication auth) {
+        // 프론트엔드에서 쓸 수 있게 로그인된 유저 ID를 넘겨줌
+        Map<String, String> userInfo = Map.of("username", auth.getName());
+
+        return Mono.just(ResponseEntity.ok(userInfo));
     }
 }
