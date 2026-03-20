@@ -13,7 +13,6 @@ import reactor.core.publisher.Mono;
 public class LoggingFilter implements WebFilter {
     @Override
     public @NonNull Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        // [기존 Interceptor의 preHandle 역할]
         long startTime = System.currentTimeMillis();
         String path = exchange.getRequest().getURI().getPath();
         String method = exchange.getRequest().getMethod().name();
@@ -21,7 +20,6 @@ public class LoggingFilter implements WebFilter {
         log.info("[START] {} {}", method, path);
 
         return chain.filter(exchange).doFinally(signalType -> {
-            // [기존 Interceptor의 afterCompletion 역할]
             long duration = System.currentTimeMillis() - startTime;
             int statusCode = exchange.getResponse().getStatusCode() != null ?
                 exchange.getResponse().getStatusCode().value() : 0;

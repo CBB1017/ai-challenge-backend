@@ -13,6 +13,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class MemberService {
     private final MemberRepository memberRepository;
-    private final PasswordEncoder sha256PasswordEncoder;
+    private final PasswordEncoder passwordEncoder;
     private final MemberRequestMapper memberRequestMapper;
 
     // 1. 신규 저장 (비동기)
@@ -37,7 +38,7 @@ public class MemberService {
                                .flatMap(m -> Mono.<Member>error(new ApiException(ApiResultCode.MEMBER_ALREADY_EXISTS)))
                                .switchIfEmpty(Mono.defer(() -> {
                                    Member member = memberRequestMapper.toEntity(request);
-                                   member.setPassword(PasswordUtil.encodeIfNeeded(request.getPassword(), sha256PasswordEncoder));
+                                   member.setPassword(passwordEncoder.encode(request.getPassword()));
                                    return memberRepository.save(member);
                                }));
     }
@@ -53,7 +54,7 @@ public class MemberService {
                                                                    .switchIfEmpty(Mono.defer(() -> {
                                                                        memberRequestMapper.updateEntityFromDto(dto, current);
                                                                        if (StringUtils.isNotBlank(dto.getPassword())) {
-                                                                           current.setPassword(PasswordUtil.encodeIfNeeded(dto.getPassword(), sha256PasswordEncoder));
+                                                                           current.setPassword(passwordEncoder.encode(dto.getPassword()));
                                                                        }
                                                                        return memberRepository.save(current);
                                                                    }))
@@ -100,7 +101,7 @@ public class MemberService {
                                    // Update 로직
                                    memberRequestMapper.updateEntityFromDto(dto, existing);
                                    if (StringUtils.isNotBlank(dto.getPassword())) {
-                                       existing.setPassword(PasswordUtil.encodeIfNeeded(dto.getPassword(), sha256PasswordEncoder));
+                                       existing.setPassword(passwordEncoder.encode(dto.getPassword()));
                                    }
                                    return memberRepository.save(existing);
                                })
@@ -110,7 +111,7 @@ public class MemberService {
                                        dto.setPassword(PasswordUtil.generatePatternPassword(dto.getName(), dto.getEmail()));
                                    }
                                    Member member = memberRequestMapper.toEntity(dto);
-                                   member.setPassword(PasswordUtil.encodeIfNeeded(dto.getPassword(), sha256PasswordEncoder));
+                                   member.setPassword(passwordEncoder.encode(dto.getPassword()));
                                    return memberRepository.save(member);
                                }));
     }

@@ -14,7 +14,6 @@ public interface MemberRepository extends ReactiveCrudRepository<Member, Long> {
 
     Mono<Member> findByEmail(String email);
 
-    // List<Member> -> Flux<Member>로 변경
     @Query("""
         SELECT * FROM member
         WHERE name IN (:names)

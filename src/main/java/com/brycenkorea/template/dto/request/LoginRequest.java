@@ -11,7 +11,7 @@ import lombok.ToString;
 @Schema(
     description = "로그인 요청", example = """
     {
-      "name": "testuser",
+      "username": "testuser",
       "password": "test1234"
     }
     """
@@ -21,7 +21,7 @@ import lombok.ToString;
 @ToString
 public class LoginRequest {
     @NotBlank
-    private String name;
+    private String username;
     @NotBlank
     @Size(min = 8, max = 30)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)

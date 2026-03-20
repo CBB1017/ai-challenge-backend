@@ -18,23 +18,25 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @RequiredArgsConstructor
 @EnableWebFluxSecurity // WebFlux 보안 활성화
 public class DynamicSecurityConfig {
-
     public static final String[] WHITELIST = {
         "/swagger-ui/**", "/v3/api-docs/**", "/api/auth/login", "/api/crawling/**", "/api/ai/**"
     };
 
     private final AuthModeProperties authModeProperties;
-    private final JwtAuthFilter jwtAuthFilter; // 앞에서 만든 WebFilter 버전
+    private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         String mode = authModeProperties.getMode();
 
+        http.cors(withDefaults());
         // CSRF 비활성화 (Stateless API 기준)
         http.csrf(ServerHttpSecurity.CsrfSpec::disable);
 
         // 권한 설정
-        http.authorizeExchange(exchanges -> exchanges.pathMatchers(WHITELIST)
+        http.authorizeExchange(exchanges -> exchanges.pathMatchers(org.springframework.http.HttpMethod.OPTIONS)
+                                                     .permitAll()
+                                                     .pathMatchers(WHITELIST)
                                                      .permitAll()
                                                      .anyExchange()
                                                      .authenticated());

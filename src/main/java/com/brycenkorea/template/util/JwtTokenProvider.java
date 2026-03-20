@@ -22,13 +22,13 @@ public class JwtTokenProvider {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String createToken(Long userId, String name, String role) {
+    public String createToken(Long userId, String email, String role) {
         Date now = new Date();
         // 1시간
         long validityInMilliseconds = 3600_000;
         Date expiry = new Date(now.getTime() + validityInMilliseconds);
         return Jwts.builder()
-                   .subject(name)
+                   .subject(email)
                    .claim("userId", userId)
                    .claim("role", role)
                    .issuedAt(now)

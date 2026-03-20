@@ -21,7 +21,6 @@ public class AuditorAwareImpl implements AuditorAware<Long> {
 
         Object principal = authentication.getPrincipal();
 
-        // 커스텀 UserDetails(Member PK가 Long인 경우)라면 아래처럼
         if (principal instanceof CustomUserDetails userDetails) {
             return Optional.of(userDetails.getUserId()); // getId()는 userId 리턴
         }

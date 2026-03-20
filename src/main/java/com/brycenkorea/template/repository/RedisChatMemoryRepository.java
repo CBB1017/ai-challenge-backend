@@ -8,82 +8,78 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import tools.jackson.core.type.TypeReference;
 import org.springframework.ai.chat.messages.Message;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
 @Slf4j
 public class RedisChatMemoryRepository implements ChatMemoryRepository {
 
-    private final StringRedisTemplate redisTemplate;
+    private final ReactiveStringRedisTemplate redisTemplate; // 💡 Reactive로 교체
+    private final JsonMapper jsonMapper;
     private static final String PREFIX = "chat:memory:v2:";
-    // 내부용 심플 DTO (인터페이스 대신 구체적인 레코드로 직렬화/역직렬화)
+
     public record MessageDto(String type, String content) {}
-
-    @Autowired
-    JsonMapper jsonMapper;
-
-    @Override
-    public @NonNull List<String> findConversationIds() {
-        Set<String> keys = redisTemplate.keys(PREFIX + "*");
-        return keys == null ? List.of() : keys.stream().map(k -> k.replace(PREFIX, "")).toList();
-    }
 
     @Override
     public @NonNull List<Message> findByConversationId(@NonNull String conversationId) {
-        String json = redisTemplate.opsForValue().get(PREFIX + conversationId);
-        if (json == null) return List.of();
+        return Objects.requireNonNull(redisTemplate.opsForValue()
+                                                   .get(PREFIX + conversationId)
+                                                   .map(this::deserializeMessages)
+                                                   .subscribeOn(Schedulers.boundedElastic())
+                                                   .block(Duration.ofSeconds(1)));
+    }
+
+    @Override
+    public void saveAll(@NonNull String conversationId, @NonNull List<Message> messages) {
+        Mono.fromCallable(() -> serializeMessages(messages))
+            .flatMap(json -> redisTemplate.opsForValue().set(PREFIX + conversationId, json, Duration.ofDays(7)))
+            .subscribeOn(Schedulers.boundedElastic())
+            .subscribe(); // 💡 비동기로 저장 실행
+    }
+
+    private String serializeMessages(List<Message> messages) {
         try {
-            // 1. JSON -> DTO 리스트로 안전하게 변환
-            List<MessageDto> dtos = jsonMapper.readValue(json, new TypeReference<>() {});
-
-            // 2. DTO -> Spring AI Message 구현체로 복원
-            return dtos.stream().map(dto -> {
-                // 💡 변경 포인트 2: Null 방어 로직 추가
-                String type = dto.type() != null ? dto.type().toLowerCase() : "user";
-                String content = dto.content() != null ? dto.content() : "";
-
-                return switch (type) {
-                    case "assistant" -> new AssistantMessage(content);
-                    case "system" -> new SystemMessage(content);
-                    default -> new UserMessage(content);
-                };
-            }).map(m -> (Message) m).toList();
+            List<MessageDto> dtos = messages.stream()
+                                            .map(m -> new MessageDto(m.getMessageType().getValue(), m.getText()))
+                                            .toList();
+            return jsonMapper.writeValueAsString(dtos);
         } catch (Exception e) {
-            log.info("역직렬화 실패로 데이터 제거");
-            redisTemplate.delete(PREFIX + conversationId);
+            throw new RuntimeException("Serialization failed", e);
+        }
+    }
+
+    private List<Message> deserializeMessages(String json) {
+        try {
+            List<MessageDto> dtos = jsonMapper.readValue(json, new TypeReference<>() {});
+            return dtos.stream().map(dto -> {
+                String type = dto.type() != null ? dto.type().toLowerCase() : "user";
+                return switch (type) {
+                    case "assistant" -> new AssistantMessage(dto.content());
+                    case "system" -> new SystemMessage(dto.content());
+                    default -> new UserMessage(dto.content());
+                };
+            }).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Deserialization failed", e);
             return List.of();
         }
     }
 
     @Override
-    public void saveAll(@NonNull String conversationId, @NonNull List<Message> messages) {
-        try {
-            // 1. Message 구현체 -> 심플 DTO로 변환
-            List<MessageDto> dtos = messages.stream()
-                                            .map(m -> new MessageDto(m.getMessageType().getValue(), m.getText()))
-                                            .toList();
-
-            // 2. DTO 리스트를 JSON으로 저장
-            String json = jsonMapper.writeValueAsString(dtos);
-
-            // 데이터 무한 증식을 막기 위해 7일(TTL) 보관 설정
-            redisTemplate.opsForValue().set(PREFIX + conversationId, json, Duration.ofDays(7));
-        } catch (Exception e) {
-            throw new RuntimeException("Redis 직렬화 실패", e);
-        }
-    }
-
+    public @NonNull List<String> findConversationIds() { return List.of(); } // 필요시 구현
     @Override
-    public void deleteByConversationId(@NonNull String conversationId) {
-        redisTemplate.delete(PREFIX + conversationId);
-    }
+    public void deleteByConversationId(@NonNull String id) { redisTemplate.delete(PREFIX + id).subscribe(); }
 }

@@ -1,6 +1,7 @@
 package com.brycenkorea.template.security;
 
 import lombok.Getter;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -21,9 +22,9 @@ public class CustomUserDetails implements UserDetails {
     }
 
     @Override
-    public String getUsername() { return username; }
+    public @NonNull String getUsername() { return username; }
     @Override
     public String getPassword() { return password; }
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }
+    public @NonNull Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }
 }

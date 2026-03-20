@@ -13,7 +13,7 @@ spring:
       genai:
         chat:
           options:
-            model: gemini-2.5-flash-lite #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+            model: gemini-2.5-flash #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
         embedding:
           text:
             options:
@@ -33,11 +33,11 @@ spring:
         initial-interval: 2s
         multiplier: 2
         max-interval: 30s
-    chat:
-      memory:
-        redis:
-          key-prefix: "groupware_chat:" # Redis 키 이름 앞에 붙을 접두사
-          time-to-live: "7d" # 7일 지나면 대화 기록이 DB에서 알아서 증발합니다!
+#    chat:
+#      memory:
+#        redis:
+#          key-prefix: "groupware_chat:" # Redis 키 이름 앞에 붙을 접두사
+#          time-to-live: "7d" # 7일 지나면 대화 기록이 DB에서 알아서 증발합니다!
     vectorstore:
       pgvector:
         index-type: HNSW
