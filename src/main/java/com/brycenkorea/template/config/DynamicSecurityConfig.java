@@ -19,7 +19,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebFluxSecurity // WebFlux 보안 활성화
 public class DynamicSecurityConfig {
     public static final String[] WHITELIST = {
-        "/swagger-ui/**", "/v3/api-docs/**", "/api/auth/login", "/api/crawling/**", "/api/ai/**"
+        "/swagger-ui/**", "/v3/api-docs/**", "/api/auth/login", "/api/crawling/**"
     };
 
     private final AuthModeProperties authModeProperties;

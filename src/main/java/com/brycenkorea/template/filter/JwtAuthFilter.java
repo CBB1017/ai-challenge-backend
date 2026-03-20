@@ -81,26 +81,18 @@ public class JwtAuthFilter implements WebFilter {
             return userDetailsService.findByUsername(username) // Mono<UserDetails> 반환 가정
                                      .flatMap(userDetails -> {
                                          if (jwtTokenProvider.validateToken(finalToken, userDetails)) {
-                                             SecurityContextImpl context = getSecurityContext(userDetails);
+                                             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                                 userDetails, null, userDetails.getAuthorities()
+                                             );
+
+                                             // 💡 [핵심] Reactive Context가 끊길 것을 대비해 exchange 속성에 물리적으로 저장
+                                             exchange.getAttributes().put("SECURE_AUTH", auth);
 
                                              return chain.filter(exchange)
-                                                         .contextWrite(ReactiveSecurityContextHolder.withSecurityContext(Mono.just(context)));
+                                                         .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
                                          }
-                                         log.warn("토큰 검증 실패: {}", username); // 💡 로그 추가
-                                         return sendError(
-                                             exchange,
-                                             HttpStatus.UNAUTHORIZED,
-                                             ApiResultCode.UNAUTHORIZED,
-                                             "Invalid JWT token"
-                                         );
-                                     })
-                                     .switchIfEmpty(sendError(
-                                         exchange,
-                                         HttpStatus.UNAUTHORIZED,
-                                         ApiResultCode.UNAUTHORIZED,
-                                         "User not found"
-                                     ));
-
+                                         return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.UNAUTHORIZED, "Invalid JWT token");
+                                     });
         } catch (Exception e) {
             return sendError(exchange, HttpStatus.BAD_REQUEST, ApiResultCode.INVALID_TOKEN, "JWT parsing failed");
         }
