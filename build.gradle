@@ -55,13 +55,12 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
     implementation 'org.springframework.ai:spring-ai-starter-model-google-genai-embedding'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    // 2. 기존에 쓰시던 순수 구글 SDK (이건 그대로 두셔도 됩니다)
     implementation 'com.google.genai:google-genai:1.42.0'
     // Spring AI의 API 재시도(Retry) 기능을 위한 필수 라이브러리
     implementation 'org.springframework.ai:spring-ai-retry'
     implementation 'org.springframework:spring-aspects'
     implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc'
-
+    implementation 'org.springframework.ai:spring-ai-starter-mcp-client-webflux'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 	runtimeOnly 'com.h2database:h2'

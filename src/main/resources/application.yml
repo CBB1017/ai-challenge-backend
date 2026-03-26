@@ -6,9 +6,6 @@ spring:
   slack:
     token: test #xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
   ai:
-#    model:
-#      embedding:
-#        text: google-genai
     google:
       genai:
         chat:
@@ -38,17 +35,24 @@ spring:
         repository:
           jdbc:
             initialize-schema: always
-    #    chat:
-#      memory:
-#        redis:
-#          key-prefix: "groupware_chat:" # Redis 키 이름 앞에 붙을 접두사
-#          time-to-live: "7d" # 7일 지나면 대화 기록이 DB에서 알아서 증발합니다!
     vectorstore:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
         dimensions: 1536
         max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+    mcp:
+      client:
+        enabled: true
+        name: my-mcp-client
+        version: 1.0.0
+        streamable-http:
+          connections:
+            crawling:
+              url: http://localhost:8081
+              endpoint: /mcp
+        request-timeout: 20s
+        type: async
   data:
     redis:
       host: localhost
