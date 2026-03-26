@@ -5,21 +5,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Repository;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import tools.jackson.core.type.TypeReference;
-import org.springframework.ai.chat.messages.Message;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Repository
@@ -31,30 +27,58 @@ public class RedisChatMemoryRepository implements ChatMemoryRepository {
     private final JsonMapper jsonMapper;
     private static final String PREFIX = "chat:memory:v2:";
 
-    public record MessageDto(String type, String content) {}
+    record MessageDto(String type,
+                      String content,
+                      Map<String, Object> metadata,
+                      List<AssistantMessage.ToolCall> toolCalls) {}
 
     @Override
     public @NonNull List<Message> findByConversationId(@NonNull String conversationId) {
-        return Objects.requireNonNull(redisTemplate.opsForValue()
-                                                   .get(PREFIX + conversationId)
-                                                   .map(this::deserializeMessages)
-                                                   .subscribeOn(Schedulers.boundedElastic())
-                                                   .block(Duration.ofSeconds(1)));
+        log.info("findByConversationId");
+        log.info("conversationId: {}", conversationId);
+        //        return Objects.requireNonNull(redisTemplate.opsForValue()
+        //                                                   .get(PREFIX + conversationId)
+        //                                                   .map(this::deserializeMessages)
+        //                                                   .subscribeOn(Schedulers.boundedElastic())
+        //                                                   .block(Duration.ofSeconds(1)));
+        String json = redisTemplate.opsForValue().get(PREFIX + conversationId).block(Duration.ofSeconds(1));
+
+        if (json == null) {
+            return List.of();
+        }
+
+        return deserializeMessages(json);
     }
 
     @Override
     public void saveAll(@NonNull String conversationId, @NonNull List<Message> messages) {
-        Mono.fromCallable(() -> serializeMessages(messages))
-            .flatMap(json -> redisTemplate.opsForValue().set(PREFIX + conversationId, json, Duration.ofDays(7)))
-            .subscribeOn(Schedulers.boundedElastic())
-            .subscribe(); // 💡 비동기로 저장 실행
+        log.info("saveAll");
+        log.info("conversationId: {}", conversationId);
+        log.info("messages: {}", messages);
+
+        //        Mono.fromCallable(() -> serializeMessages(messages))
+        //            .flatMap(json -> redisTemplate.opsForValue().set(PREFIX + conversationId, json, Duration.ofDays(7)))
+        //            .subscribeOn(Schedulers.boundedElastic())
+        //            .subscribe(); // 💡 비동기로 저장 실행
+        String json = serializeMessages(messages);
+
+        redisTemplate.opsForValue().set(PREFIX + conversationId, json, Duration.ofDays(7)).block();
     }
 
     private String serializeMessages(List<Message> messages) {
         try {
-            List<MessageDto> dtos = messages.stream()
-                                            .map(m -> new MessageDto(m.getMessageType().getValue(), m.getText()))
-                                            .toList();
+            List<MessageDto> dtos = messages.stream().map(m -> {
+                if (m instanceof AssistantMessage assistant) {
+                    return new MessageDto(
+                        m.getMessageType().getValue(),
+                        m.getText(),
+                        m.getMetadata(),
+                        assistant.getToolCalls()
+                    );
+                }
+
+                return new MessageDto(m.getMessageType().getValue(), m.getText(), m.getMetadata(), List.of());
+            }).toList();
             return jsonMapper.writeValueAsString(dtos);
         } catch (Exception e) {
             throw new RuntimeException("Serialization failed", e);
@@ -64,14 +88,27 @@ public class RedisChatMemoryRepository implements ChatMemoryRepository {
     private List<Message> deserializeMessages(String json) {
         try {
             List<MessageDto> dtos = jsonMapper.readValue(json, new TypeReference<>() {});
+
             return dtos.stream().map(dto -> {
                 String type = dto.type() != null ? dto.type().toLowerCase() : "user";
+
+                Map<String, Object> metadata = dto.metadata() != null ? dto.metadata() : Map.of();
+
                 return switch (type) {
-                    case "assistant" -> new AssistantMessage(dto.content());
-                    case "system" -> new SystemMessage(dto.content());
-                    default -> new UserMessage(dto.content());
+                    case "assistant" -> AssistantMessage.builder()
+                                                        .content(dto.content())
+                                                        .properties(metadata)
+                                                        .toolCalls(dto.toolCalls() != null
+                                                            ? dto.toolCalls()
+                                                            : List.of())
+                                                        .build();
+
+                    case "system" -> SystemMessage.builder().text(dto.content()).metadata(metadata).build();
+
+                    default -> UserMessage.builder().text(dto.content()).metadata(metadata).build();
                 };
             }).collect(Collectors.toList());
+
         } catch (Exception e) {
             log.error("Deserialization failed", e);
             return List.of();
@@ -79,7 +116,12 @@ public class RedisChatMemoryRepository implements ChatMemoryRepository {
     }
 
     @Override
-    public @NonNull List<String> findConversationIds() { return List.of(); } // 필요시 구현
+    public @NonNull List<String> findConversationIds() {
+        return List.of();
+    }
+
     @Override
-    public void deleteByConversationId(@NonNull String id) { redisTemplate.delete(PREFIX + id).subscribe(); }
+    public void deleteByConversationId(@NonNull String id) {
+        redisTemplate.delete(PREFIX + id).block();
+    }
 }

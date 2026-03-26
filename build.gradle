@@ -60,6 +60,7 @@ dependencies {
     // Spring AI의 API 재시도(Retry) 기능을 위한 필수 라이브러리
     implementation 'org.springframework.ai:spring-ai-retry'
     implementation 'org.springframework:spring-aspects'
+    implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc'
 
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
