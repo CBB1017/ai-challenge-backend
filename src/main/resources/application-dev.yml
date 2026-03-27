@@ -32,6 +32,13 @@ spring:
       mode: embedded
       schema-locations: classpath:schema-dev.sql
       data-locations: classpath:data-dev.sql
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
 jwt:
   secret: mysecretkeymysecretkeymysecretkey12
 
@@ -40,6 +47,8 @@ server:
 
 logging:
   level:
+    # 스레드 전환 시 발생하는 불필요한 관찰 컨텍스트 경고 차단
+    io.micrometer.observation.contextpropagation: ERROR
     org:
       springframework:
         ai:

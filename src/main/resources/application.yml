@@ -49,7 +49,7 @@ spring:
         streamable-http:
           connections:
             crawling:
-              url: http://localhost:8081
+              url: http://localhost:8000
               endpoint: /mcp
         request-timeout: 20s
         type: async
@@ -70,9 +70,20 @@ spring:
 #            initialize-schema: always
 auth:
   mode: jwt # jwt, basic, form
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
+    enabled: false
   api-docs:
     path: /v3/api-docs
+    enabled: false
+
+jobrunr:
+  background-job-server:
+    enabled: true
+  dashboard:
+    enabled: true # http://localhost:8002 에서 대시보드 확인 가능
+    port: 8002
+  database:
+    table-prefix: jobrunr_

@@ -35,7 +35,7 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     runtimeOnly 'org.postgresql:r2dbc-postgresql'
     implementation 'org.springframework.boot:spring-boot-starter-aspectj'
-    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.9'
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.2'
 
     // Now declare Jackson modules WITHOUT versions
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
@@ -61,8 +61,9 @@ dependencies {
     implementation 'org.springframework:spring-aspects'
     implementation 'org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc'
     implementation 'org.springframework.ai:spring-ai-starter-mcp-client-webflux'
-	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
-	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+    implementation 'org.jobrunr:jobrunr-spring-boot-4-starter:8.5.2'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	runtimeOnly 'com.h2database:h2'
 	compileOnly 'org.projectlombok:lombok:1.18.38'
 	annotationProcessor 'org.projectlombok:lombok:1.18.38'

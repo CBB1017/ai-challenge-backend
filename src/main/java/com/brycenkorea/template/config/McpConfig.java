@@ -8,8 +8,6 @@ import org.springframework.context.annotation.Bean;
 public class McpConfig {
     @Bean
     public ToolCallbackProvider crawlingToolProvider(McpAsyncClient crawlingMcpClient) {
-        return AsyncMcpToolCallbackProvider.builder()
-                                           .mcpClients(crawlingMcpClient)
-                                           .build();
+        return AsyncMcpToolCallbackProvider.builder().mcpClients(crawlingMcpClient).build();
     }
 }

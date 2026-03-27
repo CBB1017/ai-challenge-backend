@@ -2,8 +2,8 @@ package com.brycenkorea.template.tools;
 
 import com.brycenkorea.template.dto.request.CrawlerRequest;
 import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.web.client.RestClient;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * MCP가 아닌 Spring에서 Tool을 생성하여 LLM에서 호출시키는 방식.
@@ -13,21 +13,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class PythonCrawlerTools {
 
-    private final RestClient restClient;
+    private final WebClient webClient;
 
-    public PythonCrawlerTools(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder.baseUrl("http://localhost:8081").build();
+    public PythonCrawlerTools(WebClient pythonCrawlerWebClient) {
+        this.webClient = pythonCrawlerWebClient;
     }
 
     @Tool(description = "사내 시스템에서 근태(attendance), 팀원 정보(member), 회의실 예약 현황(meeting-room)을 조회합니다.")
     public String callPythonCrawler(CrawlerRequest request) {
         try {
-            // FastAPI 호출: POST /crawling/{action}
-            return restClient.post()
-                             .uri("/crawling/{action}", request.action())
-                             .body(request)
-                             .retrieve()
-                             .body(String.class); // JSON 문자열 그대로 AI에게 전달
+            // WebClient를 이용한 비동기 호출
+            return webClient.post()
+                            .uri("/crawling/{action}", request.action())
+                            .bodyValue(request) // body() 대신 bodyValue() 사용
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .block();
         } catch (Exception e) {
             return "크롤링 에러 발생: " + e.getMessage();
         }

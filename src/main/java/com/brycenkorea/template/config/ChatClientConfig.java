@@ -1,6 +1,7 @@
 package com.brycenkorea.template.config;
 
 import com.brycenkorea.template.tools.PythonCrawlerTools;
+import com.brycenkorea.template.tools.SchedulerAiTools;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -34,6 +35,7 @@ public class ChatClientConfig {
         ChatClient.Builder builder,
         ChatMemory chatMemory,
         PythonCrawlerTools crawlerTools,
+        SchedulerAiTools schedulerTools,
         AsyncMcpToolCallbackProvider mcpTools
     ) {
         return builder
@@ -41,8 +43,9 @@ public class ChatClientConfig {
                         너는 우리 회사의 친절하고 똑똑한 AI 비서야.
                         외부 정보 확인이 필요하면 반드시 도구를 먼저 호출한다.
                         추측하지 않는다.
+                        특정 시간에 작업을 예약해달라는 요청이 오면 스케줄러 도구를 사용한다.
                         """)
-            .defaultTools(crawlerTools, mcpTools)
+            .defaultToolCallbacks(mcpTools)
             .defaultAdvisors(
                 MessageChatMemoryAdvisor.builder(chatMemory).build()
             )
