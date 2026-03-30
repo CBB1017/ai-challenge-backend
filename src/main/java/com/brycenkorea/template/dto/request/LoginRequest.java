@@ -24,6 +24,5 @@ public class LoginRequest {
     private String username;
     @NotBlank
     @Size(min = 8, max = 30)
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 }

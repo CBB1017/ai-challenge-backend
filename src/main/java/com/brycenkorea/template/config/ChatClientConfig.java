@@ -34,17 +34,27 @@ public class ChatClientConfig {
     public ChatClient baseChatClient(
         ChatClient.Builder builder,
         ChatMemory chatMemory,
-        PythonCrawlerTools crawlerTools,
-        SchedulerAiTools schedulerTools,
         AsyncMcpToolCallbackProvider mcpTools
     ) {
         return builder
             .defaultSystem("""
-                        너는 우리 회사의 친절하고 똑똑한 AI 비서야.
-                        외부 정보 확인이 필요하면 반드시 도구를 먼저 호출한다.
-                        추측하지 않는다.
-                        특정 시간에 작업을 예약해달라는 요청이 오면 스케줄러 도구를 사용한다.
-                        """)
+                    너는 우리 회사의 친절하고 똑똑한 AI 비서야.
+                    [사용자 정보]
+                    - 현재 대화 중인 사용자 ID: {userId}
+                    - 소속 부서: {userDept}
+                   
+                    외부 정보 확인이 필요하면 반드시 도구를 먼저 호출한다.
+                    추측하지 않는다.
+                    특정 시간에 작업을 예약해달라는 요청이 오면 스케줄러 도구를 사용한다.
+                    MCP 도구(예: 잔업/특근 신청)를 호출할 때 반드시 위 사용자 정보를 파라미터로 사용한다.
+                    MCP 도구 중 전자결재 상신에 관한 작업의 경우
+                    Context information is below.
+
+                    ---------------------
+                    <context>
+                    ---------------------
+                    
+                    """)
             .defaultToolCallbacks(mcpTools)
             .defaultAdvisors(
                 MessageChatMemoryAdvisor.builder(chatMemory).build()

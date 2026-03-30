@@ -45,6 +45,9 @@ jwt:
 server:
   port: 8080
 
+crawler:
+  url: http://localhost:8081
+
 logging:
   level:
     # 스레드 전환 시 발생하는 불필요한 관찰 컨텍스트 경고 차단

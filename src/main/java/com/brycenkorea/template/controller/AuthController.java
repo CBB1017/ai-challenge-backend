@@ -1,59 +1,60 @@
 package com.brycenkorea.template.controller;
 
 import com.brycenkorea.template.dto.request.LoginRequest;
-import com.brycenkorea.template.security.CustomUserDetails;
-import com.brycenkorea.template.util.JwtTokenProvider;
+import com.brycenkorea.template.dto.response.LoginResponse;
+import com.brycenkorea.template.service.LoginService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.ReactiveAuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
-    private final ReactiveAuthenticationManager authenticationManager;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final PasswordEncoder passwordEncoder;
+    private final WebClient pythonCrawlerWebClient;
+    private final LoginService loginService;
 
     @PostMapping("/login")
-    // 반환 타입을 실제 데이터 구조인 Map<String, String>으로 명시합니다.
-    public Mono<ResponseEntity<Map<String, String>>> login(@RequestBody LoginRequest loginRequest) {
-        log.info("login request: {}", loginRequest);
-        log.info("pass => {}", passwordEncoder.encode(loginRequest.getPassword()));
-        UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(
-            loginRequest.getUsername(),
-            loginRequest.getPassword()
-        );
+    public Mono<ResponseEntity<?>> performLogin(@RequestBody LoginRequest loginRequest) {
+        return pythonCrawlerWebClient.post()
+                                     .uri("/api/login")
+                                     .contentType(MediaType.APPLICATION_JSON) // 컨텐트 타입 명시
+                                     .accept(MediaType.APPLICATION_JSON)      // 응답 타입 명시
+                                     .bodyValue(loginRequest)
+                                     .retrieve()
+                                     .onStatus(
+                                         HttpStatusCode::is4xxClientError, response ->
+                                         response.bodyToMono(String.class).flatMap(body -> {
+                                             // 여기서 422 에러 메시지의 상세 내용을 로그로 찍을 수 있습니다.
+                                             log.error("422 Error Detail: {}", body);
+                                             return Mono.error(new RuntimeException("클라이언트 에러: " + body));
+                                         })
+                                     )
+                                     .bodyToMono(LoginResponse.class) // 응답을 Map으로 받거나 전용 DTO 사용
+                                     .flatMap(res -> {
+                                         if (!"success".equals(res.status())) {
+                                             return Mono.error(new BadCredentialsException("로그인 실패"));
+                                         }
 
-        return authenticationManager.authenticate(token).map(authentication -> {
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-            Long userId = Objects.requireNonNull(userDetails).getUserId();
+                                         LoginResponse.CrawlerUser userData = res.user();
+                                         String nameAndPos = userData.nameAndPosition();
+                                         String dept = userData.dept();
 
-            String jwt = jwtTokenProvider.createToken(userId, authentication.getName(), "USER");
-            // 쿠키 생성
-            ResponseCookie cookie = ResponseCookie.from("accessToken", jwt)
-                                                  .httpOnly(true)    // 자바스크립트 접근 차단 (보안)
-                                                  .secure(false)     // 로컬 테스트(http)라면 false, 배포(https)라면 true
-                                                  .path("/")
-                                                  .maxAge(3600)      // 1시간
-                                                  .sameSite("Lax")   // 크로스 도메인 설정에 따라 None 또는 Lax
-                                                  .build();
-
-            return ResponseEntity.ok()
-                                 .header(HttpHeaders.SET_COOKIE, cookie.toString()) // 💡 헤더에 추가!
-                                 .body(Collections.singletonMap("token", jwt));        });
+                                         return loginService.processUserSession(
+                                             res.token(),
+                                             nameAndPos,
+                                             dept
+                                         );
+                                     });
     }
 
     @GetMapping("/check")

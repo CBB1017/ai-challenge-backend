@@ -37,7 +37,12 @@ services:
       - TOKEN=01QWI6OUT42U8
       - TZ=Asia/Seoul
       - MAX_CONCURRENT_SESSIONS=10
-      - CONNECTION_TIMEOUT=10000
+      - CONNECTION_TIMEOUT=30000  # 30초로 증설 추천
+      # --- 아래 옵션 추가 권장 ---
+      - KEEP_ALIVE=true           # 연결 유지 안정성
+      - WORKSPACE_DIR=/tmp/workspace
+      - ENABLE_CORS=true          # 도메인 간 리소스 접근 허용 (Cross-Origin 이슈 완화)
+      - DEBUG=browserless:* # 문제가 계속되면 로그를 상세히 보기 위해 사용
     ports:
       - "3001:3000"
     logging:

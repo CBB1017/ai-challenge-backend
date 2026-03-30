@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="V8-1-create-users" author="system">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="users"/>
+            </not>
+        </preConditions>
+        <comment>사용자 정보 테이블 (비밀번호 저장 안 함)</comment>
+        <createTable tableName="users">
+            <column name="email" type="VARCHAR(255)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="position" type="VARCHAR(50)"/>
+            <column name="department" type="VARCHAR(100)"/>
+            <column name="corp_code" type="VARCHAR(20)"/>
+            <column name="role" type="VARCHAR(50)" defaultValue="ROLE_USER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_login_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="V8-2-add-fk-to-chat-room" author="system">
+        <addForeignKeyConstraint baseTableName="chat_room"
+                                 baseColumnNames="user_id"
+                                 constraintName="fk_chat_room_user"
+                                 referencedTableName="users"
+                                 referencedColumnNames="email"
+                                 onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>

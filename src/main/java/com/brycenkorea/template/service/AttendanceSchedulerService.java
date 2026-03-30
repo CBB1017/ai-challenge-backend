@@ -52,7 +52,6 @@ public class AttendanceSchedulerService {
         log.info("예약된 작업 실행됨 -> Python 크롤러 호출: {}", action);
 
         try {
-            // PythonCrawlerTools에서 쓰신 것과 동일한 방식!
             String response = webClient.post()
                                         .uri("/crawling/{action}", action)
                                         .bodyValue(params)

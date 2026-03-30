@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="V7-1-create-chat-room" author="system">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="chat_room"/>
+            </not>
+        </preConditions>
+        <comment>채팅방(대화 세션) 관리 테이블 생성</comment>
+        <createTable tableName="chat_room">
+            <column name="room_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="V7-2-create-chat-message" author="system">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="chat_message"/>
+            </not>
+        </preConditions>
+        <comment>채팅 메시지 내역 테이블 생성</comment>
+        <createTable tableName="chat_message">
+            <column name="message_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="room_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="chat_message"
+                                 baseColumnNames="room_id"
+                                 constraintName="fk_chat_message_room"
+                                 referencedTableName="chat_room"
+                                 referencedColumnNames="room_id"
+                                 onDelete="CASCADE"/>
+    </changeSet>
+
+    <changeSet id="V7-3-add-indexes" author="system">
+        <comment>조회 성능 최적화를 위한 인덱스 추가</comment>
+
+        <createIndex tableName="chat_room" indexName="idx_chat_room_user_updated">
+            <column name="user_id"/>
+            <column name="updated_at" descending="true"/>
+        </createIndex>
+
+        <createIndex tableName="chat_message" indexName="idx_chat_message_room_created">
+            <column name="room_id"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

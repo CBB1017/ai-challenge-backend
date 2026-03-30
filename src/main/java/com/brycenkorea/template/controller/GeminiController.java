@@ -24,18 +24,27 @@ public class GeminiController {
 
     @PostMapping(value = "/ask", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<PromptResponse> ask(
-        @RequestBody @Valid PromptRequest promptRequest,
-        @RequestParam(value = "mode", defaultValue = "GENERAL") String mode,
-        Authentication authentication
+        @RequestBody @Valid PromptRequest promptRequest
     ) {
-        log.info("[{}] 요청 시작: {}", mode, authentication.getName());
-
 
         // 2. 서비스 호출 및 로깅
-        return geminiService.askStream(promptRequest.prompt(), mode, authentication.getName())
-                            .map(PromptResponse::new)
+        return geminiService.askStream(promptRequest.prompt(), promptRequest.roomId())
+                            .filter(chatResponse -> {
+                                // 1. 응답 결과(Generation)들 중에 Tool Call이 하나라도 있으면 사용자에게 보내지 않음
+                                return chatResponse.getResults().stream()
+                                                   .noneMatch(generation -> generation.getOutput().hasToolCalls()
+                                                   );
+                            })
+                            .map(chatResponse -> {
+                                // 2. 텍스트 내용만 추출 (null 체크 포함)
+                                String content = chatResponse.getResult() != null
+                                    ? chatResponse.getResult().getOutput().getText()
+                                    : "";
+                                return new PromptResponse(content);
+                            })
+                            .filter(resp -> !resp.response().isEmpty()) // 빈 메시지는 전송 안 함
                             .doOnNext(msg -> log.info("발송 중인 메시지: {}", msg.response()))
-                            .doOnTerminate(() -> log.info("[{}] 스트림 종료", mode))
+                            .doOnTerminate(() -> log.info("[{}] 스트림 종료", promptRequest.roomId()))
                             .doOnError(e -> log.error("스트리밍 에러: ", e));
     }
 }

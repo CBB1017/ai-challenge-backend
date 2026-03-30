@@ -57,7 +57,7 @@ public class DocumentLoaderService {
         // 4. 적재 (메타데이터와 함께 PGVector로 전송)
         vectorStore.add(splitDocs);;
 
-        System.out.println("✅ 문서 적재 완료: " + resource.getFilename());
+        System.out.println("문서 적재 완료: " + resource.getFilename());
     }
 
     private String getExtension(String fileName) {
