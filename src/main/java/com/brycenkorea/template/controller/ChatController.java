@@ -35,7 +35,7 @@ public class ChatController {
                                  .map(ChatRoomResponse::from);
     }
 
-    @PostMapping("/rooms")
+    @PostMapping("/room")
     public Mono<ChatRoomResponse> createChatRoom(Authentication authentication) {
         String userId = authentication.getName();
 

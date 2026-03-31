@@ -50,6 +50,8 @@ crawler:
 
 logging:
   level:
+    io.r2dbc.proxy.query: DEBUG # 실행되는 모든 SQL 쿼리 로깅
+
     # 스레드 전환 시 발생하는 불필요한 관찰 컨텍스트 경고 차단
     io.micrometer.observation.contextpropagation: ERROR
     org:

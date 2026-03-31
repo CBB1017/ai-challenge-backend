@@ -41,7 +41,7 @@ public class GroupwareAuthenticationManager implements ReactiveAuthenticationMan
             String dept = claims.get("dept", String.class); // 부서 정보 추가
             String name = claims.get("name", String.class); // 부서 정보 추가
 
-            // 4. 인증 토큰 반환 (Principal에 email과 부서 정보를 포함하면 서비스에서 쓰기 편함)
+            // 4. 인증 토큰 반환
             return Mono.just(new GroupwareAuthenticationToken(
                 email,
                 dept,

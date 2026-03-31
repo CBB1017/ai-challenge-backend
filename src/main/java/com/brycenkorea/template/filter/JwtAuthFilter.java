@@ -2,6 +2,7 @@ package com.brycenkorea.template.filter;
 
 import com.brycenkorea.template.dto.api.ApiResultCode;
 import com.brycenkorea.template.dto.api.CommonResponse;
+import com.brycenkorea.template.exception.ApiException;
 import com.brycenkorea.template.security.CustomUserDetailsService;
 import com.brycenkorea.template.util.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -72,24 +73,33 @@ public class JwtAuthFilter implements WebFilter {
         }
 
         try {
-            String username = jwtTokenProvider.getUsername(token);
-
-            // WebFlux에서는 UserDetails 로드도 비동기(Mono)로 처리해야 하지만,
-            // 일단 기존 userDetailsService가 동기라면 publishOn 등으로 감싸거나
-            // ReactiveUserDetailsService로 전환해야 합니다.
+            // 1. 동기적인 JWT 파싱 (이 안에서 터지면 아래 onErrorResume으로 감)
             String finalToken = token;
-            return userDetailsService.findByUsername(username) // Mono<UserDetails> 반환 가정
-                                     .flatMap(userDetails -> {
-                                         if (jwtTokenProvider.validateToken(finalToken, userDetails)) {
-                                             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                                 userDetails, null, userDetails.getAuthorities()
-                                             );
-
-                                             return chain.filter(exchange)
-                                                         .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
-                                         }
-                                         return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.UNAUTHORIZED, "Invalid JWT token");
-                                     });
+            return Mono.just(token)
+                       .map(jwtTokenProvider::getUsername)
+                       .flatMap(username -> {
+                           log.info("username={}", username);
+                           // 2. Reactive하게 사용자 조회
+                           return userDetailsService.findByUsername(username);
+                       })
+                       .flatMap(userDetails -> {
+                           // 3. 토큰 검증 및 보안 컨텍스트 설정
+                           if (jwtTokenProvider.validateToken(finalToken, userDetails)) {
+                               UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                   userDetails, null, userDetails.getAuthorities()
+                               );
+                               return chain.filter(exchange)
+                                           .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
+                           }
+                           return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.UNAUTHORIZED, "Invalid JWT token");
+                       })
+                       .onErrorResume(e -> {
+                           log.error("Security Filter Error: ", e); // 여기서 SQL 에러가 찍힙니다.
+                           if (e instanceof ApiException) { // 커스텀 예외 처리
+                               return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.INVALID_TOKEN, e.getMessage());
+                           }
+                           return sendError(exchange, HttpStatus.BAD_REQUEST, ApiResultCode.INVALID_TOKEN, "Authentication failed");
+                       });
         } catch (Exception e) {
             return sendError(exchange, HttpStatus.BAD_REQUEST, ApiResultCode.INVALID_TOKEN, "JWT parsing failed");
         }
@@ -102,8 +112,7 @@ public class JwtAuthFilter implements WebFilter {
             userDetails.getAuthorities()
         );
         // SecurityContext를 Reactive용으로 저장하고 다음 필터로 진행
-        SecurityContextImpl context = new SecurityContextImpl(auth);
-        return context;
+        return new SecurityContextImpl(auth);
     }
 
     private boolean isWhitelisted(String uri) {

@@ -17,11 +17,10 @@
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="name" type="VARCHAR(50)">
-                <constraints primaryKey="true" nullable="false"/>
+                <constraints nullable="false"/>
             </column>
             <column name="position" type="VARCHAR(50)"/>
             <column name="department" type="VARCHAR(100)"/>
-            <column name="corp_code" type="VARCHAR(20)"/>
             <column name="role" type="VARCHAR(50)" defaultValue="ROLE_USER">
                 <constraints nullable="false"/>
             </column>

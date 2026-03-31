@@ -22,29 +22,35 @@ public class GeminiController {
 
     private final GeminiService geminiService;
 
-    @PostMapping(value = "/ask", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<PromptResponse> ask(
-        @RequestBody @Valid PromptRequest promptRequest
-    ) {
+    @PostMapping(value = "/ask", produces = MediaType.APPLICATION_NDJSON_VALUE)
+    public Flux<PromptResponse> ask(@RequestBody @Valid PromptRequest promptRequest) {
+        log.info("[{}] 요청 시작 - Prompt: {}", promptRequest.roomId(), promptRequest.prompt());
 
-        // 2. 서비스 호출 및 로깅
         return geminiService.askStream(promptRequest.prompt(), promptRequest.roomId())
+                            .doOnSubscribe(s -> log.info("Gemini 스트림 구독 시작")) // 구독 여부 확인
+                            .doOnNext(res -> log.info("Raw 데이터 수신: {}", res))    // 데이터 도달 확인
                             .filter(chatResponse -> {
-                                // 1. 응답 결과(Generation)들 중에 Tool Call이 하나라도 있으면 사용자에게 보내지 않음
-                                return chatResponse.getResults().stream()
-                                                   .noneMatch(generation -> generation.getOutput().hasToolCalls()
-                                                   );
+                                boolean hasTool = chatResponse.getResults().stream()
+                                                              .anyMatch(gen -> gen.getOutput().hasToolCalls());
+                                if (hasTool) log.info("Tool Call 발견으로 필터링됨");
+                                return !hasTool;
                             })
                             .map(chatResponse -> {
-                                // 2. 텍스트 내용만 추출 (null 체크 포함)
-                                String content = chatResponse.getResult() != null
-                                    ? chatResponse.getResult().getOutput().getText()
-                                    : "";
+                                String content = (chatResponse.getResult() != null)
+                                    ? chatResponse.getResult().getOutput().getText() : "";
                                 return new PromptResponse(content);
                             })
-                            .filter(resp -> !resp.response().isEmpty()) // 빈 메시지는 전송 안 함
-                            .doOnNext(msg -> log.info("발송 중인 메시지: {}", msg.response()))
-                            .doOnTerminate(() -> log.info("[{}] 스트림 종료", promptRequest.roomId()))
-                            .doOnError(e -> log.error("스트리밍 에러: ", e));
+                            .filter(resp -> {
+                                boolean isEmpty = resp.response().isEmpty();
+                                if (isEmpty) log.debug("빈 메시지 스킵");
+                                return !isEmpty;
+                            })
+                            .doOnNext(msg -> log.info("최종 발송 데이터: {}", msg.response()))
+                            .doOnTerminate(() -> log.info("스트림 정상 종료"))
+                            .doOnError(e -> log.error("스트리밍 에러 발생: ", e))
+                            .switchIfEmpty(Flux.defer(() -> {
+                                log.warn("전송할 데이터가 하나도 없습니다 (Empty Flux)");
+                                return Flux.empty();
+                            }));
     }
 }

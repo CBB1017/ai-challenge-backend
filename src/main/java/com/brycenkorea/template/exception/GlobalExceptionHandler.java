@@ -7,14 +7,16 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.BadSqlGrammarException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Map;
 import java.util.NoSuchElementException;
 
-@RestControllerAdvice
+//@RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
@@ -45,6 +47,12 @@ public class GlobalExceptionHandler {
         log.error(ex.getLocalizedMessage());
         // 상황별로 코드 정교하게 분리할 수도 있음
         return ResponseEntity.badRequest().body(CommonResponse.error(ApiResultCode.MEMBER_ALREADY_EXISTS));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<CommonResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
+        log.error(ex.getLocalizedMessage());
+        return ResponseEntity.badRequest().body(CommonResponse.error(ApiResultCode.INVALID_TOKEN, ex.getLocalizedMessage()));
     }
 
     // MyBatis 문법 에러 (SQL 오타 등)
