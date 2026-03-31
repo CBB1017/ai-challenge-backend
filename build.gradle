@@ -55,7 +55,7 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
     implementation 'org.springframework.ai:spring-ai-starter-model-google-genai-embedding'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation 'com.google.genai:google-genai:1.42.0'
+    implementation 'com.google.genai:google-genai:1.45.0'
     // Spring AI의 API 재시도(Retry) 기능을 위한 필수 라이브러리
     implementation 'org.springframework.ai:spring-ai-retry'
     implementation 'org.springframework:spring-aspects'

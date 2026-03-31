@@ -7,11 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 @RestController
@@ -30,19 +29,25 @@ public class GeminiController {
                             .doOnSubscribe(s -> log.info("Gemini 스트림 구독 시작")) // 구독 여부 확인
                             .doOnNext(res -> log.info("Raw 데이터 수신: {}", res))    // 데이터 도달 확인
                             .filter(chatResponse -> {
-                                boolean hasTool = chatResponse.getResults().stream()
+                                boolean hasTool = chatResponse.getResults()
+                                                              .stream()
                                                               .anyMatch(gen -> gen.getOutput().hasToolCalls());
-                                if (hasTool) log.info("Tool Call 발견으로 필터링됨");
+                                if (hasTool) {
+                                    log.info("Tool Call 발견으로 필터링됨");
+                                }
                                 return !hasTool;
                             })
                             .map(chatResponse -> {
-                                String content = (chatResponse.getResult() != null)
-                                    ? chatResponse.getResult().getOutput().getText() : "";
+                                String content = (chatResponse.getResult() != null) ? chatResponse.getResult()
+                                                                                                  .getOutput()
+                                                                                                  .getText() : "";
                                 return new PromptResponse(content);
                             })
                             .filter(resp -> {
                                 boolean isEmpty = resp.response().isEmpty();
-                                if (isEmpty) log.debug("빈 메시지 스킵");
+                                if (isEmpty) {
+                                    log.debug("빈 메시지 스킵");
+                                }
                                 return !isEmpty;
                             })
                             .doOnNext(msg -> log.info("최종 발송 데이터: {}", msg.response()))
