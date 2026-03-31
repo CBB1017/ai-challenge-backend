@@ -4,6 +4,7 @@ import com.brycenkorea.template.config.IntentRouter;
 import com.brycenkorea.template.contants.AgentWorkflowSOP;
 import com.brycenkorea.template.entity.ChatMessage;
 import com.brycenkorea.template.repository.ChatMessageRepository;
+import com.brycenkorea.template.repository.ChatRoomRepository;
 import com.brycenkorea.template.security.GroupwareAuthenticationToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class GeminiService {
     private final RetrievalAugmentationAdvisor ragAdvisor;
     private final IntentRouter intentRouter;
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRepository chatRoomRepository;
 
     public Flux<ChatResponse> askStream(String prompt, String roomId) {
         return ReactiveSecurityContextHolder.getContext()
@@ -47,7 +49,10 @@ public class GeminiService {
                                                                                                                     .param("userName", userName)
                                                                                                                     .param("context", currentSOP.rules()))
                                                                                                       .user(prompt)
-                                                                                                      .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, roomId.toString()));
+                                                                                                      .advisors(a -> a.param(
+                                                                                                          ChatMemory.CONVERSATION_ID,
+                                                                                                          roomId
+                                                                                                      ));
 
                                                 if (currentSOP.requiresRag()) {
                                                     spec = spec.advisors(ragAdvisor);
@@ -72,20 +77,43 @@ public class GeminiService {
                                                                                       }
                                                                                   });
 
-                                                // 3. [핵심] 모든 과정을 체이닝
                                                 return saveUserMsg.thenMany(aiStream)
                                                                   .concatWith(Flux.defer(() -> {
-                                                                      // 스트리밍이 다 끝난 시점에 실행됨
-                                                                      // 저장이 완료될 때까지 기다리도록 Mono를 Flux로 변환하여 병합
+                                                                      // 1. AI 메시지 DB 저장
                                                                       return chatMessageRepository.save(
-                                                                          ChatMessage.builder()
-                                                                                     .roomId(UUID.fromString(roomId))
-                                                                                     .role("ASSISTANT")
-                                                                                     .content(aiResponseBuffer.toString())
-                                                                                     .build()
-                                                                      ).then(Mono.empty()); // UI에는 아무것도 추가로 보내지 않음
+                                                                                                      ChatMessage.builder()
+                                                                                                                 .roomId(UUID.fromString(roomId))
+                                                                                                                 .role("ASSISTANT")
+                                                                                                                 .content(aiResponseBuffer.toString())
+                                                                                                                 .build()
+                                                                                                  )
+                                                                                                  // 💡 2. 메시지 저장이 끝나면 비동기로 제목 요약 로직 트리거
+                                                                                                  .doOnSuccess(savedMsg -> {
+                                                                                                      generateAndSaveRoomTitle(roomId, prompt, aiResponseBuffer.toString())
+                                                                                                          .subscribeOn(Schedulers.boundedElastic())
+                                                                                                          .subscribe(); // subscribe()를 호출하여 메인 스트림과 별개로 비동기 실행 (Fire & Forget)
+                                                                                                  })
+                                                                                                  .then(Mono.empty());
                                                                   }));
                                             })
                                             .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    // 💡 제목 요약 전용 비동기 메서드 (동일 클래스 내 추가)
+    private Mono<?> generateAndSaveRoomTitle(String roomId, String userMsg, String aiMsg) {
+        String summaryPrompt = String.format(
+            "다음 대화를 바탕으로 채팅방의 제목을 15자 이내로 요약해줘.\n유저: %s\nAI: %s",
+            userMsg, aiMsg
+        );
+
+        return Mono.fromCallable(() -> baseChatClient.prompt().user(summaryPrompt).call().content())
+                   .flatMap(title -> {
+                       // chatRoomRepository를 사용하여 해당 roomId의 title 업데이트
+                        return chatRoomRepository.updateTitle(UUID.fromString(roomId), title);
+                   })
+                   .onErrorResume(e -> {
+                       log.error("방 제목 생성 실패", e);
+                       return Mono.empty();
+                   });
     }
 }

@@ -22,7 +22,7 @@ public class GeminiController {
 
     private final GeminiService geminiService;
 
-    @PostMapping(value = "/ask", produces = MediaType.APPLICATION_NDJSON_VALUE)
+    @PostMapping(value = "/ask", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<PromptResponse> ask(@RequestBody @Valid PromptRequest promptRequest) {
         log.info("[{}] 요청 시작 - Prompt: {}", promptRequest.roomId(), promptRequest.prompt());
 

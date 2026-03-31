@@ -4,6 +4,7 @@ import com.brycenkorea.template.dto.api.ApiResultCode;
 import com.brycenkorea.template.dto.api.CommonResponse;
 import com.brycenkorea.template.exception.ApiException;
 import com.brycenkorea.template.security.CustomUserDetailsService;
+import com.brycenkorea.template.security.GroupwareAuthenticationToken;
 import com.brycenkorea.template.util.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,13 +13,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.server.PathContainer;
 import org.springframework.http.server.reactive.ServerHttpResponse;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.security.core.context.SecurityContextImpl;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -40,15 +38,15 @@ import static com.brycenkorea.template.config.DynamicSecurityConfig.WHITELIST;
 @RequiredArgsConstructor
 public class JwtAuthFilter implements WebFilter {
 
-    private final JwtTokenProvider jwtTokenProvider;
-    private final CustomUserDetailsService userDetailsService;
-    @Autowired
-    JsonMapper jsonMapper;
-    // 1. 문자열 배열을 PathPattern 리스트로 미리 파싱 (매번 파싱하면 성능 저하)
+    // 문자열 배열을 PathPattern 리스트로 미리 파싱 (매번 파싱하면 성능 저하)
     private static final List<PathPattern> WHITELIST_PATTERNS = Arrays.stream(WHITELIST)
                                                                       .map(pattern -> new PathPatternParser().parse(
                                                                           pattern))
                                                                       .toList();
+    private final JwtTokenProvider jwtTokenProvider;
+    private final CustomUserDetailsService userDetailsService;
+    @Autowired
+    JsonMapper jsonMapper;
 
     @Override
     public @NonNull Mono<Void> filter(ServerWebExchange exchange, @NonNull WebFilterChain chain) {
@@ -56,7 +54,9 @@ public class JwtAuthFilter implements WebFilter {
         log.info("path={}", exchange.getRequest().getURI());
         log.info("cookies={}", exchange.getRequest().getCookies());
         log.info("headers={}", exchange.getRequest().getHeaders());
-        if (isWhitelisted(path)) return chain.filter(exchange);
+        if (isWhitelisted(path)) {
+            return chain.filter(exchange);
+        }
 
         // 1. 헤더에서 먼저 찾기
         String token = extractTokenFromHeader(exchange);
@@ -73,46 +73,37 @@ public class JwtAuthFilter implements WebFilter {
         }
 
         try {
-            // 1. 동기적인 JWT 파싱 (이 안에서 터지면 아래 onErrorResume으로 감)
-            String finalToken = token;
-            return Mono.just(token)
-                       .map(jwtTokenProvider::getUsername)
-                       .flatMap(username -> {
-                           log.info("username={}", username);
-                           // 2. Reactive하게 사용자 조회
-                           return userDetailsService.findByUsername(username);
-                       })
-                       .flatMap(userDetails -> {
-                           // 3. 토큰 검증 및 보안 컨텍스트 설정
-                           if (jwtTokenProvider.validateToken(finalToken, userDetails)) {
-                               UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                   userDetails, null, userDetails.getAuthorities()
-                               );
-                               return chain.filter(exchange)
-                                           .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
-                           }
-                           return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.UNAUTHORIZED, "Invalid JWT token");
-                       })
-                       .onErrorResume(e -> {
-                           log.error("Security Filter Error: ", e); // 여기서 SQL 에러가 찍힙니다.
-                           if (e instanceof ApiException) { // 커스텀 예외 처리
-                               return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.INVALID_TOKEN, e.getMessage());
-                           }
-                           return sendError(exchange, HttpStatus.BAD_REQUEST, ApiResultCode.INVALID_TOKEN, "Authentication failed");
-                       });
-        } catch (Exception e) {
-            return sendError(exchange, HttpStatus.BAD_REQUEST, ApiResultCode.INVALID_TOKEN, "JWT parsing failed");
-        }
-    }
+            // 1. 토큰 유효성 검증 (만료, 서명 오류 등 발생 시 catch 블록으로 이동)
+            if (!jwtTokenProvider.validateToken(token)) {
+                return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.UNAUTHORIZED, "Invalid JWT token");
+            }
 
-    private static @NonNull SecurityContextImpl getSecurityContext(UserDetails userDetails) {
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-            userDetails,
-            null,
-            userDetails.getAuthorities()
-        );
-        // SecurityContext를 Reactive용으로 저장하고 다음 필터로 진행
-        return new SecurityContextImpl(auth);
+            // 2. DB 조회 없이 토큰에서 직접 정보 추출 (Stateless)
+            String username = jwtTokenProvider.getUsername(token);
+            String department = jwtTokenProvider.getDepartment(token);
+            String name = jwtTokenProvider.getName(token);
+            List<GrantedAuthority> authorities = jwtTokenProvider.getAuthorities(token);
+
+            // 3. 커스텀 인증 객체 생성
+            GroupwareAuthenticationToken auth = new GroupwareAuthenticationToken(
+                username,
+                department,
+                name,
+                token,
+                authorities
+            );
+
+            // 4. 리액티브 컨텍스트에 저장 후 다음 필터 체인 진행
+            return chain.filter(exchange).contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
+
+        } catch (Exception e) {
+            log.error("Security Filter Error: ", e);
+            if (e instanceof ApiException) {
+                return sendError(exchange, HttpStatus.UNAUTHORIZED, ApiResultCode.INVALID_TOKEN, e.getMessage());
+            }
+            // JWT 파싱 에러 (ExpiredJwtException 등) 처리
+            return sendError(exchange, HttpStatus.BAD_REQUEST, ApiResultCode.INVALID_TOKEN, "Authentication failed");
+        }
     }
 
     private boolean isWhitelisted(String uri) {
@@ -120,14 +111,13 @@ public class JwtAuthFilter implements WebFilter {
         PathContainer pathContainer = PathContainer.parsePath(uri);
 
         // 3. 미리 파싱된 패턴들과 매칭 확인
-        return WHITELIST_PATTERNS.stream()
-                                 .anyMatch(pattern -> pattern.matches(pathContainer));
+        return WHITELIST_PATTERNS.stream().anyMatch(pattern -> pattern.matches(pathContainer));
     }
 
     private Mono<Void> sendError(ServerWebExchange exchange, HttpStatus status, ApiResultCode code, String message) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
-//        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        //        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
         CommonResponse<Void> resBody = CommonResponse.error(code, message);
         byte[] bytes = jsonMapper.writeValueAsString(resBody).getBytes(StandardCharsets.UTF_8);

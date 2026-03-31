@@ -1,19 +1,24 @@
 package com.brycenkorea.template.util;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest; // WebFlux용으로 변경
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
+@Slf4j
 @Component
 public class JwtTokenProvider {
 
@@ -35,27 +40,27 @@ public class JwtTokenProvider {
                    .compact();
     }
 
-    public boolean validateToken(String token, UserDetails userDetails) {
+    public boolean validateToken(String token) {
         try {
-            String username = getUsername(token);
-            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
-        } catch (Exception e) {
-            return false;
+            Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token);
+            return true;
+        } catch (SecurityException | MalformedJwtException e) {
+            log.error("잘못된 JWT 서명 또는 구조입니다.", e);
+        } catch (ExpiredJwtException e) {
+            log.error("만료된 JWT 토큰입니다.", e);
+        } catch (UnsupportedJwtException e) {
+            log.error("지원되지 않는 형식의 JWT 토큰입니다.", e);
+        } catch (IllegalArgumentException e) {
+            log.error("JWT 토큰이 비어있거나 잘못되었습니다.", e);
         }
-    }
-
-    private boolean isTokenExpired(String token) {
-        Date expiration = Jwts.parser()
-                              .verifyWith(key)
-                              .build()
-                              .parseSignedClaims(token)
-                              .getPayload()
-                              .getExpiration();
-        return expiration.before(new Date());
+        return false;
     }
 
     /**
-     * 우리 서비스의 SecretKey로 서명된 토큰을 검증하고 페이로드를 반환합니다.
+     * 서비스의 SecretKey로 서명된 토큰을 검증하고 페이로드를 반환합니다.
      */
     public Claims getClaims(String token) {
         return Jwts.parser()
@@ -75,5 +80,14 @@ public class JwtTokenProvider {
 
     public String getName(String token) {
         return getClaims(token).get("name", String.class);
+    }
+
+    // 💡 JwtAuthFilter에서 사용할 권한(Authorities) 추출 메서드 추가
+    public List<GrantedAuthority> getAuthorities(String token) {
+        String role = getClaims(token).get("role", String.class);
+        if (role != null && !role.isBlank()) {
+            return List.of(new SimpleGrantedAuthority(role));
+        }
+        return Collections.emptyList();
     }
 }

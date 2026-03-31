@@ -68,7 +68,7 @@ public class IntentRouter {
 
             return sopRegistry.getOrDefault(Objects.requireNonNull(result).category(), sopRegistry.get("GENERAL"));
         } catch (Exception e) {
-            log.error("LLM 라우터 실패, 기본값 반환: {}", e.getMessage());
+            log.info("LLM 라우터 실패, 기본값 반환: {}", e.getMessage());
             return sopRegistry.get("GENERAL");
         }
     }
