@@ -1,4 +1,5 @@
 package com.brycenkorea.template.exception;
+
 import com.brycenkorea.template.dto.api.ApiResultCode;
 import com.brycenkorea.template.dto.api.CommonResponse;
 import com.brycenkorea.template.dto.api.ErrorDetail;
@@ -11,7 +12,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.sql.SQLException;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+
 class GlobalExceptionHandlerTest {
 
     GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -28,7 +30,7 @@ class GlobalExceptionHandlerTest {
         Assertions.assertNotNull(resp.getBody());
         assertThat(resp.getBody().code()).isEqualTo(ApiResultCode.VALIDATION_ERROR.getCode());
         assertThat(resp.getBody().message()).isEqualTo(ApiResultCode.VALIDATION_ERROR.getMessage());
-        assertThat((String)((ErrorDetail) resp.getBody().error()).detail()).isEqualTo("테스트 에러메시지");
+        assertThat((String) ((ErrorDetail) resp.getBody().error()).detail()).isEqualTo("테스트 에러메시지");
     }
 
     @Test
@@ -43,7 +45,7 @@ class GlobalExceptionHandlerTest {
         Assertions.assertNotNull(resp.getBody());
         assertThat(resp.getBody().code()).isEqualTo(ApiResultCode.VALIDATION_ERROR.getCode());
         assertThat(resp.getBody().message()).isEqualTo(ApiResultCode.VALIDATION_ERROR.getMessage());
-        assertThat((String)((ErrorDetail) resp.getBody().error()).detail()).isEqualTo("Bind 에러메시지");
+        assertThat((String) ((ErrorDetail) resp.getBody().error()).detail()).isEqualTo("Bind 에러메시지");
     }
 
     @Test
@@ -56,7 +58,7 @@ class GlobalExceptionHandlerTest {
         Assertions.assertNotNull(resp.getBody());
         assertThat(resp.getBody().code()).isEqualTo(ApiResultCode.NO_CONTENT.getCode());
         assertThat(resp.getBody().message()).isEqualTo(ApiResultCode.NO_CONTENT.getMessage());
-        assertThat((String)((ErrorDetail) resp.getBody().error()).detail()).isNull();
+        assertThat((String) ((ErrorDetail) resp.getBody().error()).detail()).isNull();
     }
 
     @Test
@@ -71,7 +73,7 @@ class GlobalExceptionHandlerTest {
         Assertions.assertNotNull(resp.getBody());
         assertThat(resp.getBody().code()).isEqualTo(ApiResultCode.MEMBER_NOT_FOUND.getCode());
         assertThat(resp.getBody().message()).isEqualTo(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
-        assertThat((String)((ErrorDetail) resp.getBody().error()).detail()).isEqualTo("상세메시지");
+        assertThat((String) ((ErrorDetail) resp.getBody().error()).detail()).isEqualTo("상세메시지");
     }
 
     @Test
@@ -93,8 +95,11 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleBadSql_returns_internal_server_error() {
         // Given: SQL 문법 오류로 BadSqlGrammarException이 발생한 경우
-        org.springframework.jdbc.BadSqlGrammarException ex =
-            new org.springframework.jdbc.BadSqlGrammarException("task", "SELECT * FROM", new SQLException("SQL오류"));
+        org.springframework.jdbc.BadSqlGrammarException ex = new org.springframework.jdbc.BadSqlGrammarException(
+            "task",
+            "SELECT * FROM",
+            new SQLException("SQL오류")
+        );
 
         // When: handler가 해당 예외를 처리하면
         ResponseEntity<CommonResponse<Void>> resp = handler.handleBadSql(ex);

@@ -4,6 +4,7 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+
 import java.lang.reflect.Method;
 
 public class TestUtil {
@@ -25,5 +26,6 @@ public class TestUtil {
     }
 
     // just for method reference (not used in test)
-    public void dummyMethod() {}
+    public void dummyMethod() {
+    }
 }

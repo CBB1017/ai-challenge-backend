@@ -14,7 +14,13 @@ public class CustomUserDetails implements UserDetails {
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public CustomUserDetails(Long userId, String username, String password, Collection<? extends GrantedAuthority> authorities) {
+    public CustomUserDetails(
+        Long userId,
+        String username,
+        String password,
+        Collection<? extends GrantedAuthority> authorities
+    )
+    {
         this.userId = userId;
         this.username = username;
         this.password = password;
@@ -22,9 +28,17 @@ public class CustomUserDetails implements UserDetails {
     }
 
     @Override
-    public @NonNull String getUsername() { return username; }
+    public @NonNull String getUsername() {
+        return username;
+    }
+
     @Override
-    public String getPassword() { return password; }
+    public String getPassword() {
+        return password;
+    }
+
     @Override
-    public @NonNull Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }
+    public @NonNull Collection<? extends GrantedAuthority> getAuthorities() {
+        return authorities;
+    }
 }

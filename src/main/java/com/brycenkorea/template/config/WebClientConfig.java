@@ -13,8 +13,8 @@ public class WebClientConfig {
     @Bean
     public WebClient pythonCrawlerWebClient(@Value("${crawler.url}") String crawlerUrl) {
         return WebClient.builder()
-                        .baseUrl(crawlerUrl)
-                        .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                        .build();
+            .baseUrl(crawlerUrl)
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .build();
     }
 }

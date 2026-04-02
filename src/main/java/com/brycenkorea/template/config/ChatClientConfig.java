@@ -1,7 +1,5 @@
 package com.brycenkorea.template.config;
 
-import com.brycenkorea.template.tools.PythonCrawlerTools;
-import com.brycenkorea.template.tools.SchedulerAiTools;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -24,10 +22,7 @@ import org.springframework.context.annotation.Configuration;
 public class ChatClientConfig {
     @Bean
     public ChatMemory chatMemory(JdbcChatMemoryRepository repository) {
-        return MessageWindowChatMemory.builder()
-                                      .chatMemoryRepository(repository)
-                                      .maxMessages(20)
-                                      .build();
+        return MessageWindowChatMemory.builder().chatMemoryRepository(repository).maxMessages(20).build();
     }
 
     @Bean
@@ -35,30 +30,28 @@ public class ChatClientConfig {
         ChatClient.Builder builder,
         ChatMemory chatMemory,
         AsyncMcpToolCallbackProvider mcpTools
-    ) {
-        return builder
-            .defaultSystem("""
-                    너는 우리 회사의 친절하고 똑똑한 AI 비서야.
-                    [사용자 정보]
-                    - 현재 대화 중인 사용자 ID: {userId}
-                    - 소속 부서: {userDept}
-                   
-                    외부 정보 확인이 필요하면 반드시 도구를 먼저 호출한다.
-                    추측하지 않는다.
-                    특정 시간에 작업을 예약해달라는 요청이 오면 스케줄러 도구를 사용한다.
-                    MCP 도구(예: 잔업/특근 신청)를 호출할 때 반드시 위 사용자 정보를 파라미터로 사용한다.
-                    MCP 도구 중 전자결재 상신에 관한 작업의 경우
-                    Context information is below.
-
-                    ---------------------
-                    <context>
-                    ---------------------
-                    
-                    """)
+    )
+    {
+        return builder.defaultSystem("""
+                너는 우리 회사의 친절하고 똑똑한 AI 비서야.
+                [사용자 정보]
+                - 현재 대화 중인 사용자 ID: {userId}
+                - 소속 부서: {userDept}
+                
+                외부 정보 확인이 필요하면 반드시 도구를 먼저 호출한다.
+                추측하지 않는다.
+                특정 시간에 작업을 예약해달라는 요청이 오면 스케줄러 도구를 사용한다.
+                전자결재, 일정, 신청 관련 도구 호출 시 필요한 사용자 정보는 시스템에서 자동 전달된다.
+                
+                Context information is below.
+                
+                ---------------------
+                <context>
+                ---------------------
+                
+                """)
             .defaultToolCallbacks(mcpTools)
-            .defaultAdvisors(
-                MessageChatMemoryAdvisor.builder(chatMemory).build()
-            )
+            .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
             .build();
     }
 
@@ -66,41 +59,33 @@ public class ChatClientConfig {
     public RetrievalAugmentationAdvisor ragAdvisor(VectorStore pgVectorStore) {
 
         DocumentRetriever retriever = VectorStoreDocumentRetriever.builder()
-                                                                  .vectorStore(pgVectorStore)
-                                                                  .similarityThreshold(0.8d)
-                                                                  .topK(3)
-                                                                  .build();
+            .vectorStore(pgVectorStore)
+            .similarityThreshold(0.8d)
+            .topK(3)
+            .build();
 
         PromptTemplate template = PromptTemplate.builder()
-                                                .renderer(StTemplateRenderer.builder()
-                                                                            .startDelimiterToken('<')
-                                                                            .endDelimiterToken('>')
-                                                                            .build())
-                                                .template("""
-                        <query>
-
-                        Context information is below.
-
-                        ---------------------
-                        <context>
-                        ---------------------
-
-                        Given the context information and no prior knowledge, answer the query.
-
-                        Rules:
-                        1. If unknown, say you don't know.
-                        2. No phrases like "Based on context".
-                        """)
-                                                .build();
+            .renderer(StTemplateRenderer.builder().startDelimiterToken('<').endDelimiterToken('>').build())
+            .template("""
+                <query>
+                
+                Context information is below.
+                
+                ---------------------
+                <context>
+                ---------------------
+                
+                Given the context information and no prior knowledge, answer the query.
+                
+                Rules:
+                1. If unknown, say you don't know.
+                2. No phrases like "Based on context".
+                """)
+            .build();
 
         return RetrievalAugmentationAdvisor.builder()
-                                           .documentRetriever(retriever)
-                                           .queryAugmenter(
-                                               ContextualQueryAugmenter.builder()
-                                                                       .promptTemplate(template)
-                                                                       .allowEmptyContext(true)
-                                                                       .build()
-                                           )
-                                           .build();
+            .documentRetriever(retriever)
+            .queryAugmenter(ContextualQueryAugmenter.builder().promptTemplate(template).allowEmptyContext(true).build())
+            .build();
     }
 }

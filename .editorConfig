@@ -1,47 +1,26 @@
 [*.java]
-ij_continuation_indent_size = 4
+# 기본 인덴트
+indent_size = 4
+continuation_indent_size = 4
 
-ij_java_align_multiline_array_initializer_expression = true
-ij_java_align_multiline_chained_methods = true
+# [핵심] 수직 정렬을 모두 끄고 줄바꿈 규칙을 강제함
+ij_java_align_multiline_chained_methods = false
+ij_java_align_multiline_parameters = false
+ij_java_align_multiline_parameters_in_calls = false
 
-ij_java_annotation_parameter_wrap = on_every_item
+# [핵심] 포맷터가 내 줄바꿈을 마음대로 합치지 못하게 함
+ij_java_keep_line_breaks = true
+ij_java_keep_simple_lambdas_in_one_line = false
+ij_java_keep_simple_blocks_in_one_line = false
+ij_java_keep_simple_methods_in_one_line = false
 
-ij_java_array_initializer_new_line_after_left_brace = true
-ij_java_array_initializer_right_brace_on_new_line = true
-ij_java_array_initializer_wrap = on_every_item
-
-ij_java_block_brace_style = next_line_if_wrapped
-ij_java_call_parameters_new_line_after_left_paren = true
-ij_java_call_parameters_right_paren_on_new_line = true
-ij_java_call_parameters_wrap = on_every_item
-
-ij_java_doc_add_blank_line_after_return = true
-ij_java_doc_do_not_wrap_if_one_line = true
-
-ij_java_if_brace_force = if_multiline
-
-ij_java_keep_control_statement_in_one_line = false
-ij_java_keep_first_column_comment = false
-ij_java_keep_line_breaks = false
-ij_java_keep_simple_classes_in_one_line = true
-
-ij_java_lambda_brace_style = next_line_if_wrapped
-
-ij_java_method_brace_style = next_line_if_wrapped
+# [핵심] 메서드 체이닝 시 무조건 줄바꿈
 ij_java_method_call_chain_wrap = on_every_item
-ij_java_method_parameters_new_line_after_left_paren = true
-ij_java_method_parameters_right_paren_on_new_line = true
-ij_java_method_parameters_wrap = on_every_item
 
-ij_java_new_line_after_lparen_in_annotation = true
+# 람다 및 블록 중괄호 스타일 (공통 스타일로 통일)
+ij_java_lambda_brace_style = end_of_line
+ij_java_block_brace_style = end_of_line
+ij_java_method_brace_style = end_of_line
 
-ij_java_parameter_annotation_wrap = on_every_item
-
-ij_java_record_components_wrap = on_every_item
-
-ij_java_rparen_on_new_line_in_annotation = true
-
-ij_java_ternary_operation_signs_on_next_line = true
-ij_java_ternary_operation_wrap = on_every_item
-
-ij_java_variable_annotation_wrap = split_into_lines
+# 람다 파라미터가 많을 때 줄바꿈
+ij_java_lambda_parameter_list_wrap = on_every_item

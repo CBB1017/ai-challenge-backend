@@ -14,7 +14,14 @@ public class GroupwareAuthenticationToken extends AbstractAuthenticationToken {
     private final String name;
     private final String token;
 
-    public GroupwareAuthenticationToken(String principal, String department, String name, String token, Collection<? extends GrantedAuthority> authorities) {
+    public GroupwareAuthenticationToken(
+        String principal,
+        String department,
+        String name,
+        String token,
+        Collection<? extends GrantedAuthority> authorities
+    )
+    {
         super(authorities);
         this.principal = principal;
         this.department = department;
@@ -24,8 +31,13 @@ public class GroupwareAuthenticationToken extends AbstractAuthenticationToken {
     }
 
     @Override
-    public Object getCredentials() { return token; }
+    public Object getCredentials() {
+        return token;
+    }
+
     @Override
-    public Object getPrincipal() { return principal; }
+    public String getPrincipal() {
+        return principal;
+    }
 
 }

@@ -1,5 +1,5 @@
 plugins {
-	id 'java'
+    id 'java'
     id 'org.springframework.boot' version '4.1.0-M2'
     id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -8,9 +8,9 @@ group = 'com.brycenkorea'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 ext {
@@ -24,13 +24,13 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-jackson'
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-jackson'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 //    implementation 'com.mysql:mysql-connector-j'
     runtimeOnly 'org.postgresql:postgresql'
     runtimeOnly 'org.postgresql:r2dbc-postgresql'
@@ -39,11 +39,11 @@ dependencies {
 
     // Now declare Jackson modules WITHOUT versions
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'io.opentelemetry:opentelemetry-api:1.51.0'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.opentelemetry:opentelemetry-api:1.51.0'
 //	implementation 'org.liquibase:liquibase-core:4.33.0'
     implementation 'org.springframework.boot:spring-boot-starter-liquibase'
-	implementation 'com.slack.api:slack-api-client:1.45.3'
+    implementation 'com.slack.api:slack-api-client:1.45.3'
     // Spring AI
 //    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
     implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
@@ -64,25 +64,25 @@ dependencies {
     implementation 'org.jobrunr:jobrunr-spring-boot-4-starter:8.5.2'
     implementation 'io.r2dbc:r2dbc-proxy:1.1.6.RELEASE'
 
-	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
-	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
-	runtimeOnly 'com.h2database:h2'
-	compileOnly 'org.projectlombok:lombok:1.18.38'
-	annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    runtimeOnly 'com.h2database:h2'
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
 
-	implementation 'org.mapstruct:mapstruct:1.6.3'
-	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 
-	testImplementation 'io.rest-assured:rest-assured:5.5.5'
-	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
-	testImplementation 'org.mockito:mockito-core:5.2.0'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.security:spring-security-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testCompileOnly 'org.projectlombok:lombok:1.18.38'
-	testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
+    testImplementation 'io.rest-assured:rest-assured:5.5.5'
+    testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
+    testImplementation 'org.mockito:mockito-core:5.2.0'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testCompileOnly 'org.projectlombok:lombok:1.18.38'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
 
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
 }
 
 dependencyManagement {
@@ -92,5 +92,5 @@ dependencyManagement {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }

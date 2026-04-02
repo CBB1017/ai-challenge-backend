@@ -45,23 +45,21 @@ public class DocumentLoaderService {
             Arrays.asList('.', '!', '?', '\n', '。', '！', '？')
         );
         // 3. 텍스트 분할 실행
-        List<Document> splitDocs = documents.stream()
-                                            .flatMap(doc -> splitter.apply(List.of(doc)).stream())
-                                            .map(doc -> {
-                                                // 💡 기존 메타데이터에 커스텀 메타데이터 병합
-                                                doc.getMetadata().putAll(customMetadata);
-                                                return doc;
-                                            })
-                                            .collect(Collectors.toList());
+        List<Document> splitDocs = documents.stream().flatMap(doc -> splitter.apply(List.of(doc)).stream()).map(doc -> {
+            // 💡 기존 메타데이터에 커스텀 메타데이터 병합
+            doc.getMetadata().putAll(customMetadata);
+            return doc;
+        }).collect(Collectors.toList());
 
         // 4. 적재 (메타데이터와 함께 PGVector로 전송)
-        vectorStore.add(splitDocs);;
+        vectorStore.add(splitDocs);
 
         System.out.println("문서 적재 완료: " + resource.getFilename());
     }
 
     private String getExtension(String fileName) {
         return fileName != null && fileName.contains(".")
-            ? fileName.substring(fileName.lastIndexOf(".") + 1) : "unknown";
+            ? fileName.substring(fileName.lastIndexOf(".") + 1)
+            : "unknown";
     }
 }

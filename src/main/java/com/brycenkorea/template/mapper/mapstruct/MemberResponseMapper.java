@@ -10,5 +10,6 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface MemberResponseMapper {
     MemberResponse toResponse(Member entity);
+
     List<MemberResponse> toDtoList(List<Member> entities);
 }

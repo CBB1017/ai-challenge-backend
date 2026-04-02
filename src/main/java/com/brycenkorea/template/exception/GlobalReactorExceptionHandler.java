@@ -25,34 +25,31 @@ public class GlobalReactorExceptionHandler {
         log.warn("Validation failed: {}", errorMessage);
 
         return Mono.just(ResponseEntity.badRequest()
-                                       .body(CommonResponse.error(ApiResultCode.VALIDATION_ERROR, errorMessage)));
+            .body(CommonResponse.error(ApiResultCode.VALIDATION_ERROR, errorMessage)));
     }
 
     @ExceptionHandler(NoSuchElementException.class)
     public Mono<ResponseEntity<CommonResponse<Void>>> handleNoSuchElement() {
         return Mono.just(ResponseEntity.status(HttpStatus.NO_CONTENT)
-                                       .body(CommonResponse.error(ApiResultCode.NO_CONTENT)));
+            .body(CommonResponse.error(ApiResultCode.NO_CONTENT)));
     }
 
     @ExceptionHandler(ApiException.class)
     public Mono<ResponseEntity<CommonResponse<Void>>> handleApiException(ApiException ex) {
         ApiResultCode code = ApiResultCode.valueOfCode(ex.getCode());
-        return Mono.just(ResponseEntity.status(code.getHttpStatus())
-                                       .body(CommonResponse.error(code, ex.getDetail())));
+        return Mono.just(ResponseEntity.status(code.getHttpStatus()).body(CommonResponse.error(code, ex.getDetail())));
     }
 
     // DB 제약 위반 등
     @ExceptionHandler({DataIntegrityViolationException.class, DuplicateKeyException.class})
     public Mono<ResponseEntity<CommonResponse<Void>>> handleConstraint(Exception ex) {
         log.error("DB Constraint Violation: {}", ex.getMessage());
-        return Mono.just(ResponseEntity.badRequest()
-                                       .body(CommonResponse.error(ApiResultCode.MEMBER_ALREADY_EXISTS)));
+        return Mono.just(ResponseEntity.badRequest().body(CommonResponse.error(ApiResultCode.MEMBER_ALREADY_EXISTS)));
     }
 
     @ExceptionHandler(Exception.class)
     public Mono<ResponseEntity<CommonResponse<Void>>> handleAll(Exception ex) {
         log.error("Unhandled Exception: ", ex);
-        return Mono.just(ResponseEntity.internalServerError()
-                                       .body(CommonResponse.error(ApiResultCode.FATAL_ERROR)));
+        return Mono.just(ResponseEntity.internalServerError().body(CommonResponse.error(ApiResultCode.FATAL_ERROR)));
     }
 }

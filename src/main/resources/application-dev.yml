@@ -16,10 +16,10 @@ spring:
     default-schema: public
     database-change-log-table: databasechangelog
     database-change-log-lock-table: databasechangeloglock
-#  h2:
-#    console:
-#      enabled: true
-#      path: /h2-console
+  #  h2:
+  #    console:
+  #      enabled: true
+  #      path: /h2-console
   jpa:
     hibernate:
       ddl-auto: none

@@ -7,17 +7,16 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
 
 @SecurityScheme(
-		name = "bearer",         // 사용할 이름
-		type = SecuritySchemeType.HTTP,
-		scheme = "bearer", //  "basic"
-		bearerFormat = "JWT"
+    name = "bearer",         // 사용할 이름
+    type = SecuritySchemeType.HTTP, scheme = "bearer", //  "basic"
+    bearerFormat = "JWT"
 )
 @SpringBootApplication
 @EnableR2dbcAuditing
 public class TemplateApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(TemplateApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(TemplateApplication.class, args);
+    }
 
 }

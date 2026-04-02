@@ -11,9 +11,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.Map;
 import java.util.NoSuchElementException;
 
 //@RestControllerAdvice
@@ -52,7 +50,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<CommonResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
         log.error(ex.getLocalizedMessage());
-        return ResponseEntity.badRequest().body(CommonResponse.error(ApiResultCode.INVALID_TOKEN, ex.getLocalizedMessage()));
+        return ResponseEntity.badRequest()
+            .body(CommonResponse.error(ApiResultCode.INVALID_TOKEN, ex.getLocalizedMessage()));
     }
 
     // MyBatis 문법 에러 (SQL 오타 등)

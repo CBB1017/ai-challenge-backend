@@ -14,20 +14,24 @@ public interface MemberRepository extends ReactiveCrudRepository<Member, Long> {
 
     Mono<Member> findByEmail(String email);
 
-    @Query("""
-        SELECT * FROM member
-        WHERE name IN (:names)
-          AND position IN (:positions)
-    """)
+    @Query(
+        """
+                SELECT * FROM member
+                WHERE name IN (:names)
+                  AND position IN (:positions)
+            """
+    )
     Flux<Member> findAllByNameInAndPositionIn(Set<String> nameSet, Set<String> positionSet);
 
-    @Query("""
-        SELECT * FROM member
-        WHERE name LIKE CONCAT('%', :keyword, '%')
-           OR email LIKE CONCAT('%', :keyword, '%')
-        ORDER BY id DESC
-        LIMIT :#{#pageable.pageSize} OFFSET :#{#pageable.offset}
-    """)
+    @Query(
+        """
+                SELECT * FROM member
+                WHERE name LIKE CONCAT('%', :keyword, '%')
+                   OR email LIKE CONCAT('%', :keyword, '%')
+                ORDER BY id DESC
+                LIMIT :#{#pageable.pageSize} OFFSET :#{#pageable.offset}
+            """
+    )
     Flux<Member> searchByKeyword(String keyword, Pageable pageable);
 
     Flux<Member> findAllBy(Pageable pageable);

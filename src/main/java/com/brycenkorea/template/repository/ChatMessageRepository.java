@@ -1,14 +1,9 @@
 package com.brycenkorea.template.repository;
 
 import com.brycenkorea.template.entity.ChatMessage;
-import com.brycenkorea.template.entity.ChatRoom;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import reactor.core.publisher.Flux;
 
-import java.util.UUID;
-
-import org.springframework.data.repository.reactive.ReactiveCrudRepository;
-import reactor.core.publisher.Flux;
 import java.util.UUID;
 
 public interface ChatMessageRepository extends ReactiveCrudRepository<ChatMessage, UUID> {

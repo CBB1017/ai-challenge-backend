@@ -2,7 +2,6 @@ package com.brycenkorea.template.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
-import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
@@ -21,8 +20,9 @@ public class LoggingFilter implements WebFilter {
 
         return chain.filter(exchange).doFinally(signalType -> {
             long duration = System.currentTimeMillis() - startTime;
-            int statusCode = exchange.getResponse().getStatusCode() != null ?
-                exchange.getResponse().getStatusCode().value() : 0;
+            int statusCode = exchange.getResponse().getStatusCode() != null ? exchange.getResponse()
+                .getStatusCode()
+                .value() : 0;
 
             log.info("[END] Path: {}, Status: {}, Duration: {}ms", path, statusCode, duration);
         });

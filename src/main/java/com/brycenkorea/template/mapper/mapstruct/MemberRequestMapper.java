@@ -9,6 +9,7 @@ import org.mapstruct.*;
 public interface MemberRequestMapper {
     @Mapping(target = "id", ignore = true)
     Member toEntity(MemberRequest dto);
+
     // PATCH: null은 무시(기존 값 유지)
     @Mapping(target = "id", ignore = true)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

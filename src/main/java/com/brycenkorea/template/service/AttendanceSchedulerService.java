@@ -53,11 +53,11 @@ public class AttendanceSchedulerService {
 
         try {
             String response = webClient.post()
-                                        .uri("/crawling/{action}", action)
-                                        .bodyValue(params)
-                                        .retrieve()
-                                        .bodyToMono(String.class)
-                                        .block();
+                .uri("/crawling/{action}", action)
+                .bodyValue(params)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
             log.info("크롤러 실행 결과: {}", response);
             // TODO: 결과를 슬랙으로 보내거나 처리하는 로직 추가
 

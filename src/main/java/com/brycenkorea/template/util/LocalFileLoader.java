@@ -25,8 +25,8 @@ public class LocalFileLoader {
             Path path = Paths.get(pathStr);
             try (Stream<Path> paths = Files.walk(path)) {
                 paths.filter(Files::isRegularFile)
-                     .filter(p -> p.toString().endsWith(".pdf") || p.toString().endsWith(".docx"))
-                     .forEach(p -> documentLoaderService.loadDocument(new FileSystemResource(p)));
+                    .filter(p -> p.toString().endsWith(".pdf") || p.toString().endsWith(".docx"))
+                    .forEach(p -> documentLoaderService.loadDocument(new FileSystemResource(p)));
             } catch (Exception e) {
                 log.error("파일 적재 에러", e);
             }

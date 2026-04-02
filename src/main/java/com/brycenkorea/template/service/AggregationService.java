@@ -10,10 +10,9 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -26,9 +25,9 @@ public class AggregationService {
         LocalDateTime endOfDay = getEndOfDay(date);
 
         return attendanceRepository.findAllByCreatedAtBetween(startOfDay, endOfDay)
-                                   .filter(this::isWeekday) // Flux 내부에서 필터링
-                                   .collectList()           // Flux를 Mono<List>로 변환
-                                   .map(this::makeAggregationDto);
+            .filter(this::isWeekday) // Flux 내부에서 필터링
+            .collectList()           // Flux를 Mono<List>로 변환
+            .map(this::makeAggregationDto);
     }
 
     public Mono<AggregationDto> getAggregatedPeriodDataByDate(String start, String end) {
@@ -36,9 +35,9 @@ public class AggregationService {
         LocalDateTime endOfDay = getEndOfDay(end);
 
         return attendanceRepository.findAllByCreatedAtBetween(startOfDay, endOfDay)
-                                   .filter(this::isWeekday)
-                                   .collectList()
-                                   .map(this::makeAggregationDto);
+            .filter(this::isWeekday)
+            .collectList()
+            .map(this::makeAggregationDto);
     }
 
     public Mono<AggregationDto> getAggregatedMonthlyDataByDate(String date) {
@@ -47,9 +46,9 @@ public class AggregationService {
         LocalDateTime endOfMonth = getEndOfMonth(date);
 
         return attendanceRepository.findAllByCreatedAtBetween(startOfMonth, endOfMonth)
-                                   .filter(this::isWeekday)
-                                   .collectList()
-                                   .map(this::makeAggregationDto);
+            .filter(this::isWeekday)
+            .collectList()
+            .map(this::makeAggregationDto);
     }
 
     private AggregationDto makeAggregationDto(List<Attendance> attendances) {
@@ -57,15 +56,15 @@ public class AggregationService {
 
         // 1. 출근 미기입자 (필터 로직 최적화)
         result.setMissingStart(attendances.stream()
-                                          .filter(v -> !isExceptionType(v.getActualType()) && StringUtils.isBlank(v.getActualIn()))
-                                          .map(Attendance::getMemberName)
-                                          .toList());
+            .filter(v -> !isExceptionType(v.getActualType()) && StringUtils.isBlank(v.getActualIn()))
+            .map(Attendance::getMemberName)
+            .toList());
 
         // 2. 퇴근 미기입자
         result.setMissingEnd(attendances.stream()
-                                        .filter(v -> !isExceptionType(v.getActualType()) && StringUtils.isBlank(v.getActualOut()))
-                                        .map(Attendance::getMemberName)
-                                        .toList());
+            .filter(v -> !isExceptionType(v.getActualType()) && StringUtils.isBlank(v.getActualOut()))
+            .map(Attendance::getMemberName)
+            .toList());
 
         result.setMissingPlan(Collections.emptyList());
         return result;
@@ -94,7 +93,6 @@ public class AggregationService {
         DayOfWeek dow = date.getDayOfWeek();
 
         // 평일이거나, 주말인데 출근 기록이 있는 경우
-        return (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY)
-            || StringUtils.isNotBlank(attendance.getActualIn());
+        return (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) || StringUtils.isNotBlank(attendance.getActualIn());
     }
 }

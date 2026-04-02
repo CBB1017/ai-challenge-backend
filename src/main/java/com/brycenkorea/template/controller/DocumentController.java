@@ -34,24 +34,24 @@ public class DocumentController {
         );
 
         return filePart.transferTo(tempFile) // 비차단 파일 저장
-                       .then(Mono.fromRunnable(() -> {
-                                     log.info("블로킹 적재 작업 시작: {}", filePart.filename());
-                                     try {
-                                         // 2. 서비스 호출 (기존 블로킹 로직)
-                                         documentLoaderService.loadDocument(new FileSystemResource(tempFile));
-                                     } finally {
-                                         // 3. 리소스 정리
-                                         cleanup(tempFile);
-                                     }
-                                 })
-                                 // 💡 핵심: 블로킹 작업을 전용 스레드 풀(boundedElastic)로 격리
-                                 .subscribeOn(Schedulers.boundedElastic()))
-                       .map(v -> "✅ 적재 완료: " + filePart.filename())
-                       .onErrorResume(e -> {
-                           log.error("적재 중 에러 발생: {}", e.getMessage());
-                           cleanup(tempFile);
-                           return Mono.just("❌ 적재 실패: " + e.getMessage());
-                       });
+            .then(Mono.fromRunnable(() -> {
+                    log.info("블로킹 적재 작업 시작: {}", filePart.filename());
+                    try {
+                        // 2. 서비스 호출 (기존 블로킹 로직)
+                        documentLoaderService.loadDocument(new FileSystemResource(tempFile));
+                    } finally {
+                        // 3. 리소스 정리
+                        cleanup(tempFile);
+                    }
+                })
+                // 💡 핵심: 블로킹 작업을 전용 스레드 풀(boundedElastic)로 격리
+                .subscribeOn(Schedulers.boundedElastic()))
+            .map(v -> "✅ 적재 완료: " + filePart.filename())
+            .onErrorResume(e -> {
+                log.error("적재 중 에러 발생: {}", e.getMessage());
+                cleanup(tempFile);
+                return Mono.just("❌ 적재 실패: " + e.getMessage());
+            });
     }
 
     private void cleanup(Path path) {

@@ -17,12 +17,12 @@ public class AggregationCountDto {
         AggregationCountDto result = new AggregationCountDto();
 
         result.setMissingStartCount(dto.getMissingStart()
-                                       .stream()
-                                       .collect(Collectors.groupingBy(name -> name, Collectors.counting())));
+            .stream()
+            .collect(Collectors.groupingBy(name -> name, Collectors.counting())));
 
         result.setMissingEndCount(dto.getMissingEnd()
-                                     .stream()
-                                     .collect(Collectors.groupingBy(name -> name, Collectors.counting())));
+            .stream()
+            .collect(Collectors.groupingBy(name -> name, Collectors.counting())));
 
         return result;
     }

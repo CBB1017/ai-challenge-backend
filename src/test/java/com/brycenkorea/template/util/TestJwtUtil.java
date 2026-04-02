@@ -20,21 +20,22 @@ public class TestJwtUtil {
         Date expiry = new Date(now.getTime() + 3600_000);
 
         return Jwts.builder()
-                   .subject(name)
-                   .claim("role", role)
-                   .claim("userId", userId)
-                   .claim("email", name + "@bry.co.kr")
-                   .issuedAt(now)
-                   .expiration(expiry)
-                   .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
-                   .compact();
+            .subject(name)
+            .claim("role", role)
+            .claim("userId", userId)
+            .claim("email", name + "@bry.co.kr")
+            .issuedAt(now)
+            .expiration(expiry)
+            .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
+            .compact();
     }
+
     public Long getUserIdFromToken(String token) {
         Claims claims = Jwts.parser()
-                            .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
-                            .build()
-                            .parseSignedClaims(token)
-                            .getPayload();
+            .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
         return claims.get("userId", Long.class);
     }
 }

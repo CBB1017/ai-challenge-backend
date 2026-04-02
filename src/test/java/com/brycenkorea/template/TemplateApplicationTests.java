@@ -9,8 +9,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class TemplateApplicationTests {
     @MockitoBean
     AuthenticationManager authenticationManager;
-	@Test
-	void contextLoads() {
-	}
+
+    @Test
+    void contextLoads() {
+    }
 
 }

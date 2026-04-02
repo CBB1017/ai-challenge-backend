@@ -41,9 +41,9 @@ public class CrawlingController {
     public Mono<CommonResponse<BulkImportResult>> importMembers(@RequestBody List<TeamWithMembersRequest> teamsDto) {
         // 스트림 처리는 기존과 동일하되, 최종 서비스 호출만 비동기로 연결
         List<MemberRequest> dx2TeamMembers = teamsDto.stream()
-                                                     .filter(t -> "DX 2Team".equals(t.getTeam()))
-                                                     .flatMap(t -> t.getMembers().stream())
-                                                     .toList();
+            .filter(t -> "DX 2Team".equals(t.getTeam()))
+            .flatMap(t -> t.getMembers().stream())
+            .toList();
 
         return bulkImportService.importMembers(dx2TeamMembers).map(CommonResponse::ok);
     }

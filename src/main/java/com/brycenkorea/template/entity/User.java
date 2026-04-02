@@ -34,12 +34,22 @@ public class User implements Persistable<String> {
 
     // 신규 유저 여부를 판단하기 위한 유틸리티
     public static User fromGroupware(String email, String name, String position, String department) {
-        return User.builder().email(email).name(name).position(position).department(department).role("ROLE_USER").build();
+        return User.builder()
+            .email(email)
+            .name(name)
+            .position(position)
+            .department(department)
+            .role("ROLE_USER")
+            .build();
     }
 
     @Override
-    public String getId() { return email; }
+    public String getId() {
+        return email;
+    }
 
     @Override
-    public boolean isNew() { return isNew || createdAt == null; }
+    public boolean isNew() {
+        return isNew || createdAt == null;
+    }
 }

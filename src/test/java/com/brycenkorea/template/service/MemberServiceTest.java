@@ -43,8 +43,8 @@ class MemberServiceTest {
         given(memberRepository.findByName("dupMember")).willReturn(Optional.of(new Member()));
 
         assertThatThrownBy(() -> memberService.save(req)).as("이미 존재하는 name이면 MEMBER_ALREADY_EXISTS 예외가 발생해야 한다")
-                                                         .isInstanceOf(ApiException.class)
-                                                         .hasMessageContaining(ApiResultCode.MEMBER_ALREADY_EXISTS.getMessage());
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining(ApiResultCode.MEMBER_ALREADY_EXISTS.getMessage());
     }
 
     @Test
@@ -74,8 +74,8 @@ class MemberServiceTest {
         given(memberRepository.findById(999L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> memberService.findById(999L)).as("존재하지 않는 id는 MEMBER_NOT_FOUND 예외 발생")
-                                                              .isInstanceOf(ApiException.class)
-                                                              .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -119,8 +119,8 @@ class MemberServiceTest {
         given(memberRepository.findByName("u2")).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> memberService.findByName("u2")).as("존재하지 않는 name으로 조회시 MEMBER_NOT_FOUND 예외 발생")
-                                                                .isInstanceOf(ApiException.class)
-                                                                .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -136,8 +136,8 @@ class MemberServiceTest {
         given(memberRepository.findByName("dupMember")).willReturn(Optional.of(other));
 
         assertThatThrownBy(() -> memberService.update(id, req)).as("username이 다른 사용자와 중복되면 MEMBER_ALREADY_EXISTS 예외 발생")
-                                                               .isInstanceOf(ApiException.class)
-                                                               .hasMessageContaining(ApiResultCode.MEMBER_ALREADY_EXISTS.getMessage());
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining(ApiResultCode.MEMBER_ALREADY_EXISTS.getMessage());
     }
 
     @Test
@@ -149,8 +149,8 @@ class MemberServiceTest {
         given(memberRepository.findById(id)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> memberService.update(id, req)).as("존재하지 않는 id로 수정시 MEMBER_NOT_FOUND 예외 발생")
-                                                               .isInstanceOf(ApiException.class)
-                                                               .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -182,9 +182,7 @@ class MemberServiceTest {
 
         Member updated = memberService.update(id, req);
 
-        assertThat(updated.getPassword())
-            .as("수정시 비밀번호는 암호화된 값이어야 한다")
-            .isEqualTo("encodedpw");
+        assertThat(updated.getPassword()).as("수정시 비밀번호는 암호화된 값이어야 한다").isEqualTo("encodedpw");
 
         verify(memberRequestMapper).updateEntityFromDto(req, current);
         verify(sha256PasswordEncoder).encode("plainpw");
@@ -198,8 +196,8 @@ class MemberServiceTest {
         given(memberRepository.existsById(notFoundId)).willReturn(false);
 
         assertThatThrownBy(() -> memberService.deleteById(notFoundId)).as("존재하지 않는 id로 삭제시 MEMBER_NOT_FOUND 예외 발생")
-                                                                      .isInstanceOf(ApiException.class)
-                                                                      .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining(ApiResultCode.MEMBER_NOT_FOUND.getMessage());
     }
 
     @Test
@@ -209,7 +207,7 @@ class MemberServiceTest {
         given(memberRepository.existsById(existingId)).willReturn(true);
 
         assertThatCode(() -> memberService.deleteById(existingId)).as("존재하는 id로 삭제시 예외 없이 통과해야 함")
-                                                                  .doesNotThrowAnyException();
+            .doesNotThrowAnyException();
         verify(memberRepository).deleteById(existingId);
     }
 

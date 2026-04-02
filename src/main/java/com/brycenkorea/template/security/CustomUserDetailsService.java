@@ -22,12 +22,12 @@ public class CustomUserDetailsService implements ReactiveUserDetailsService { //
     @Override
     public @NonNull Mono<UserDetails> findByUsername(@NonNull String email) { // 메서드명과 반환 타입 변경
         return memberRepository.findByEmail(email)
-                               .switchIfEmpty(Mono.error(new UsernameNotFoundException("User not found: " + email)))
-                               .map(member -> new CustomUserDetails(
-                                   member.getId(),
-                                   member.getEmail(),
-                                   member.getPassword(),
-                                   List.of(new SimpleGrantedAuthority("ROLE_USER"))
-                               ));
+            .switchIfEmpty(Mono.error(new UsernameNotFoundException("User not found: " + email)))
+            .map(member -> new CustomUserDetails(
+                member.getId(),
+                member.getEmail(),
+                member.getPassword(),
+                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+            ));
     }
 }

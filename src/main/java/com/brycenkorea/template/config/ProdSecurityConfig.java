@@ -16,11 +16,11 @@ public class ProdSecurityConfig {
     @Bean
     public SecurityWebFilterChain prodSecurityFilterChain(ServerHttpSecurity http) {
         return http.csrf(csrf -> csrf.csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse()))
-                   .authorizeExchange(exchanges -> exchanges.pathMatchers("/api/member/**", "/v3/api-docs/**")
-                                                            .permitAll()
-                                                            .anyExchange()
-                                                            .authenticated())
-                   .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
-                   .build();
+            .authorizeExchange(exchanges -> exchanges.pathMatchers("/api/member/**", "/v3/api-docs/**")
+                .permitAll()
+                .anyExchange()
+                .authenticated())
+            .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+            .build();
     }
 }

@@ -35,11 +35,11 @@ public class DynamicSecurityConfig {
 
         // 권한 설정
         http.authorizeExchange(exchanges -> exchanges.pathMatchers(org.springframework.http.HttpMethod.OPTIONS)
-                                                     .permitAll()
-                                                     .pathMatchers(WHITELIST)
-                                                     .permitAll()
-                                                     .anyExchange()
-                                                     .authenticated());
+            .permitAll()
+            .pathMatchers(WHITELIST)
+            .permitAll()
+            .anyExchange()
+            .authenticated());
 
         if ("jwt".equalsIgnoreCase(mode)) {
             http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance()) // Stateless

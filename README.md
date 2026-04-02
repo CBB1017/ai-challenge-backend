@@ -8,6 +8,7 @@ gradle
 ---
 
 ## 📑 목차
+
 1. [📂 템플릿 프로젝트 구조](#1--템플릿-프로젝트-구조)
 2. [🔒 인증 모드 설명 (Auth Modes)](#2--인증-모드-설명-auth-modes)
 3. [🛡️ Interceptor, Filter, Aspect, ExceptionHandler](#3--interceptor-filter-aspect-exceptionhandler)
@@ -23,53 +24,53 @@ gradle
 
 ## 1. 📂 템플릿 프로젝트 구조
 
-| 디렉토리                                      | 설명                                | 주요 라이브러리/설명                                                                     |
-| ----------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------- |
-| `src/main/java/com/brycenkorea/template/` |                                   |                                                                                 |
-| ├── `annotation/`                         | 커스텀 어노테이션                         | lombok, **springdoc-openapi** (Swagger)                                         |
-| │   └── `swagger/`                        | Swagger 관련 어노테이션                  | **springdoc-openapi**                                                           |
-| ├── `aspect/`                             | 공통 Aspect (로깅 등)               | spring-boot-starter-aop, lombok (Slf4j)              |
+| 디렉토리                                      | 설명                                  | 주요 라이브러리/설명                                                                     |
+|-------------------------------------------|-------------------------------------|---------------------------------------------------------------------------------|
+| `src/main/java/com/brycenkorea/template/` |                                     |                                                                                 |
+| ├── `annotation/`                         | 커스텀 어노테이션                           | lombok, **springdoc-openapi** (Swagger)                                         |
+| │   └── `swagger/`                        | Swagger 관련 어노테이션                    | **springdoc-openapi**                                                           |
+| ├── `aspect/`                             | 공통 Aspect (로깅 등)                    | spring-boot-starter-aop, lombok (Slf4j)                                         |
 | ├── `config/`                             | 환경별 Config, Security, **Swagger 등** | Spring Boot, Spring Security, **springdoc-openapi**                             |
-| ├── `controller/`                         | API 컨트롤러                          | spring-boot-starter-web, validation, **springdoc-openapi (Swagger annotation)** |
-| ├── `dto/`                                | 요청/응답 DTO                         | lombok, javax/jakarta validation                                                |
-| │   ├── `api/`                            | API 관련 DTO                        | lombok, **springdoc-openapi (Schema/ApiModel 등)**                               |
-| │   ├── `common/`                         | 공통 DTO                            | lombok                                                                          |
-| │   ├── `request/`                        | 요청 DTO                            | lombok, validation                                                              |
-| │   └── `response/`                       | 응답 DTO                            | lombok                                                                          |
-| ├── `entity/`                             | JPA Entity 클래스                    | spring-boot-starter-data-jpa, lombok                                            |
-| ├── `exception/`                          | 예외, 에러코드, 핸들러                     | Spring 표준, lombok, custom exception                                             |
+| ├── `controller/`                         | API 컨트롤러                            | spring-boot-starter-web, validation, **springdoc-openapi (Swagger annotation)** |
+| ├── `dto/`                                | 요청/응답 DTO                           | lombok, javax/jakarta validation                                                |
+| │   ├── `api/`                            | API 관련 DTO                          | lombok, **springdoc-openapi (Schema/ApiModel 등)**                               |
+| │   ├── `common/`                         | 공통 DTO                              | lombok                                                                          |
+| │   ├── `request/`                        | 요청 DTO                              | lombok, validation                                                              |
+| │   └── `response/`                       | 응답 DTO                              | lombok                                                                          |
+| ├── `entity/`                             | JPA Entity 클래스                      | spring-boot-starter-data-jpa, lombok                                            |
+| ├── `exception/`                          | 예외, 에러코드, 핸들러                       | Spring 표준, lombok, custom exception                                             |
 | ├── `filter/`                             | JWT 등 Filter (OncePerRequestFilter) | spring-boot-starter-security, jjwt, spring-web                                  |
-| ├── `interceptor/`                        | 인증/로깅 등 Interceptor               | spring-web, HandlerInterceptor                                                  |
-| ├── `mapper/`                             |                                   |                                                                                 |
-| │   ├── `mapstruct/`                      | MapStruct Mapper (DTO <-> Entity) | mapstruct, mapstruct-processor                                                  |
-| ├── `repository/`                         | JPA Repository                    | spring-boot-starter-data-jpa                                                    |
-| ├── `security/`                           | 암호화, UserDetails 등                | spring-boot-starter-security, jjwt                                              |
-| ├── `service/`                            | 비즈니스 서비스 레이어                      | spring-boot-starter-web, lombok                                                 |
-| └── `util/`                               | 공용 유틸리티 (JWT, 암복호화 등)             | jjwt, 표준 java, commons                                 |
-| `src/main/resources/`                     |                                   |                                                                                 |
-| ├── `static/`                             | 정적 리소스 폴더                         | -                                                                               |
-| ├── `templates/`                          | 템플릿 폴더                            | thymeleaf 등(선택)                                                                 |
-| ├── `application.yml`                     | 기본 애플리케이션 설정                      | Spring Boot                                                                     |
-| ├── `application-dev.yml`                 | 개발환경 설정                           | Spring Boot                                                                     |
-| ├── `application-prod.yml`                | 운영환경 설정                           | Spring Boot                                                                     |
-| ├── `data-dev.sql`                        | 개발환경 초기 데이터                       | H2, JPA                                                                         |
-| ├── `logback-spring.xml`                  | 로그백 설정                            | logback                                                                         |
-| └── `schema-dev.sql`                      | 개발환경 스키마                          | H2, JPA                                                                         |
-| `src/test/java/com/brycenkorea/template/`          |                   |                                                            |
-| ├── `config/`                                      | 테스트 환경/설정         | spring-boot-starter-test, security-test 등                  |
-| │   ├── `MockConfig`                               | Mock Bean 등 테스트 전용 설정 |                                                            |
-| │   └── `TestSecurityConfig`                       | 테스트 전용 시큐리티 설정   |                                                            |
-| ├── `controller/`                                  | 컨트롤러 통합/단위 테스트     | spring-boot-starter-test, mockito-core, security-test       |
-| │   └── `MemberControllerIntegrationTest`            | Member 컨트롤러 통합테스트     | MockMvc, 인증/권한, 통합 API 테스트                        |
-| ├── `exception/`                                   | 전역 예외처리 단위 테스트     | spring-boot-starter-test, mockito-core                      |
-| │   └── `GlobalExceptionHandlerTest`               | 예외핸들러 단위테스트        | ExceptionHandler, 커스텀 예외 응답 구조 검증                |
-| ├── `service/`                                     | 서비스(비즈니스) 단위테스트   | spring-boot-starter-test, mockito-core                      |
-| │   └── `MemberServiceTest`                          | Member 서비스 단위테스트       | Mocking, 비즈니스 분기/예외 검증                           |
-| ├── `util/`                                        | 공통/테스트 유틸리티         | assertj-core, lombok 등                                     |
-| │   ├── `TestJwtUtil`                              | JWT 유틸 단위테스트          | Jwt 토큰 발급/파싱 테스트                                   |
-| │   └── `TestUtil`                                 | 테스트 보조 유틸             | Exception/Request 등 테스트용 객체 생성                      |
-| └── `TemplateApplicationTests`                     | (필요시) contextLoads 테스트 | Spring Boot context 전체 로딩 테스트                        |
-| `README.md`                               | 프로젝트 설명 파일                        | -                                                                               |
+| ├── `interceptor/`                        | 인증/로깅 등 Interceptor                 | spring-web, HandlerInterceptor                                                  |
+| ├── `mapper/`                             |                                     |                                                                                 |
+| │   ├── `mapstruct/`                      | MapStruct Mapper (DTO <-> Entity)   | mapstruct, mapstruct-processor                                                  |
+| ├── `repository/`                         | JPA Repository                      | spring-boot-starter-data-jpa                                                    |
+| ├── `security/`                           | 암호화, UserDetails 등                  | spring-boot-starter-security, jjwt                                              |
+| ├── `service/`                            | 비즈니스 서비스 레이어                        | spring-boot-starter-web, lombok                                                 |
+| └── `util/`                               | 공용 유틸리티 (JWT, 암복호화 등)               | jjwt, 표준 java, commons                                                          |
+| `src/main/resources/`                     |                                     |                                                                                 |
+| ├── `static/`                             | 정적 리소스 폴더                           | -                                                                               |
+| ├── `templates/`                          | 템플릿 폴더                              | thymeleaf 등(선택)                                                                 |
+| ├── `application.yml`                     | 기본 애플리케이션 설정                        | Spring Boot                                                                     |
+| ├── `application-dev.yml`                 | 개발환경 설정                             | Spring Boot                                                                     |
+| ├── `application-prod.yml`                | 운영환경 설정                             | Spring Boot                                                                     |
+| ├── `data-dev.sql`                        | 개발환경 초기 데이터                         | H2, JPA                                                                         |
+| ├── `logback-spring.xml`                  | 로그백 설정                              | logback                                                                         |
+| └── `schema-dev.sql`                      | 개발환경 스키마                            | H2, JPA                                                                         |
+| `src/test/java/com/brycenkorea/template/` |                                     |                                                                                 |
+| ├── `config/`                             | 테스트 환경/설정                           | spring-boot-starter-test, security-test 등                                       |
+| │   ├── `MockConfig`                      | Mock Bean 등 테스트 전용 설정               |                                                                                 |
+| │   └── `TestSecurityConfig`              | 테스트 전용 시큐리티 설정                      |                                                                                 |
+| ├── `controller/`                         | 컨트롤러 통합/단위 테스트                      | spring-boot-starter-test, mockito-core, security-test                           |
+| │   └── `MemberControllerIntegrationTest` | Member 컨트롤러 통합테스트                   | MockMvc, 인증/권한, 통합 API 테스트                                                      |
+| ├── `exception/`                          | 전역 예외처리 단위 테스트                      | spring-boot-starter-test, mockito-core                                          |
+| │   └── `GlobalExceptionHandlerTest`      | 예외핸들러 단위테스트                         | ExceptionHandler, 커스텀 예외 응답 구조 검증                                               |
+| ├── `service/`                            | 서비스(비즈니스) 단위테스트                     | spring-boot-starter-test, mockito-core                                          |
+| │   └── `MemberServiceTest`               | Member 서비스 단위테스트                    | Mocking, 비즈니스 분기/예외 검증                                                          |
+| ├── `util/`                               | 공통/테스트 유틸리티                         | assertj-core, lombok 등                                                          |
+| │   ├── `TestJwtUtil`                     | JWT 유틸 단위테스트                        | Jwt 토큰 발급/파싱 테스트                                                                |
+| │   └── `TestUtil`                        | 테스트 보조 유틸                           | Exception/Request 등 테스트용 객체 생성                                                  |
+| └── `TemplateApplicationTests`            | (필요시) contextLoads 테스트              | Spring Boot context 전체 로딩 테스트                                                   |
+| `README.md`                               | 프로젝트 설명 파일                          | -                                                                               |
 
 ---
 
@@ -117,19 +118,20 @@ gradle
 - **OpenTelemetry(OTEL)**
     - traceId, spanId로 추적성 확보 (분산추적 연동시 사용)
     - agent: WAS 프로세스, library: 코드 삽입 방식 지원
-    - agent는 https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases 에서 다운받고 
-    jar를 적절한 경로에 포함한다.(아래 OpenTelemetry VM 인수에서 설명)
+    - agent는 https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases 에서 다운받고
+      jar를 적절한 경로에 포함한다.(아래 OpenTelemetry VM 인수에서 설명)
     - 이 방식의 장점은 TraceId, SpanId를 자동으로 헤더에 설정
-      - traceId: 요청 당 생성, spanId: 요청 내에 분기가 될만한 다른 요청(DB, http, thread 등) 시 생성
+        - traceId: 요청 당 생성, spanId: 요청 내에 분기가 될만한 다른 요청(DB, http, thread 등) 시 생성
     - agent가 있으면 library는 필요없으나, 이 프로젝트에서는 비즈니스 추적을 위해 TraceId, SpanId를 ResponseEntity data에 포함시켜 library 추가함
-      - agent 없이 library만 사용하려면 직접 요청 시마다 생성해야 함. 컨테이너 환경에서는 agent 추천, 클라우드에서는 논의 후 걷어내도 무방
-      - 아예 OpenTelemetry가 필요없다면 VM 인수만 제거하고 trace/span ID 제거 작업
+        - agent 없이 library만 사용하려면 직접 요청 시마다 생성해야 함. 컨테이너 환경에서는 agent 추천, 클라우드에서는 논의 후 걷어내도 무방
+        - 아예 OpenTelemetry가 필요없다면 VM 인수만 제거하고 trace/span ID 제거 작업
 - **로그 레벨**
     - DEBUG/INFO/WARN/ERROR 개별 조정
     - 패키지별 세부 지정 가능(예: Hibernate, MyBatis, Security 등)
     - log.info(…)시 traceId도 자동 노출
 
 ### *OpenTelemetry VM 인수
+
     - javaagent:/path/to/opentelemetry-javaagent.jar
     - Dotel.service.name=brycen-template
     # openTelemetry-collector를 사용한다면(PLT or ELK)
@@ -195,23 +197,26 @@ gradle
     - Custom log mask util로 key-value 치환 등
 
 ---
+
 ## 9. 🧪 테스트 전략 & 커버리지
 
 ### ▶️ 테스트 코드 작성 원칙
 
 - **서비스/비즈니스 로직 단위 테스트**
-  - Mockito, JUnit5 기반 Mocking으로 **비즈니스 분기, 예외, 성공 케이스** 집중 검증
-  - BDD 스타일로 `@DisplayName`과 `.as()` 활용하여 **테스트 의도 명확화**
+    - Mockito, JUnit5 기반 Mocking으로 **비즈니스 분기, 예외, 성공 케이스** 집중 검증
+    - BDD 스타일로 `@DisplayName`과 `.as()` 활용하여 **테스트 의도 명확화**
 
 - **컨트롤러 & API 통합 테스트**
-  - `@WebMvcTest`, `@SpringBootTest` 사용
-  - MockMvc/RestAssured 기반 **HTTP API 레이어** 실제 동작 테스트
-  - Security, Validation, ExceptionHandler 등 **API 표준 응답 구조** 일관성 검증
+    - `@WebMvcTest`, `@SpringBootTest` 사용
+    - MockMvc/RestAssured 기반 **HTTP API 레이어** 실제 동작 테스트
+    - Security, Validation, ExceptionHandler 등 **API 표준 응답 구조** 일관성 검증
 
 - **예외/전역 핸들러 테스트**
-  - `@ControllerAdvice`, `@ExceptionHandler`가 커버하는 **모든 예외 타입별 직접 단위/통합 테스트**
-  - `CommonResponse`의 code, message, error.detail 등 **응답 구조** 검증
+    - `@ControllerAdvice`, `@ExceptionHandler`가 커버하는 **모든 예외 타입별 직접 단위/통합 테스트**
+    - `CommonResponse`의 code, message, error.detail 등 **응답 구조** 검증
+
 --- 
+
 ## 10. 주의사항
 
 - **테스트 코드(Junit, Mockito) 기본 제공**

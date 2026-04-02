@@ -10,16 +10,16 @@ spring:
       genai:
         chat:
           options:
-#            model: gemini-2.5-pro #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
-#            model: gemini-2.5-flash #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
-#            model: gemini-2.5-flash-lite #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+            #            model: gemini-2.5-pro #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+            #            model: gemini-2.5-flash #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+            #            model: gemini-2.5-flash-lite #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
             model: gemini-3.1-flash-lite-preview #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
-#            model: gemini-3.1-pro #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+        #            model: gemini-3.1-pro #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
         embedding:
           text:
             options:
               model: gemini-embedding-2-preview
-#              model: models/text-embedding-004
+          #              model: models/text-embedding-004
           project-id: "unused-project" # dummy
           location: "us-central1" # 기본값으로 넣어둡니다.
           api-key: ${GEMINI_API_KEY}

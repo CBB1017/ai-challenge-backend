@@ -1,9 +1,10 @@
 package com.brycenkorea.template.entity;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Table;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.ToString;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -11,7 +12,8 @@ import java.util.UUID;
 @Table("chat_room")
 @Getter
 @Builder
-public class ChatRoom{
+@ToString
+public class ChatRoom {
 
     @Id
     private UUID roomId;  // UUID 타입은 R2DBC PostgreSQL 드라이버가 자동 매핑해줍니다.

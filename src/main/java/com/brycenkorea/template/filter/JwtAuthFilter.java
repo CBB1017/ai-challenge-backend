@@ -40,9 +40,8 @@ public class JwtAuthFilter implements WebFilter {
 
     // 문자열 배열을 PathPattern 리스트로 미리 파싱 (매번 파싱하면 성능 저하)
     private static final List<PathPattern> WHITELIST_PATTERNS = Arrays.stream(WHITELIST)
-                                                                      .map(pattern -> new PathPatternParser().parse(
-                                                                          pattern))
-                                                                      .toList();
+        .map(pattern -> new PathPatternParser().parse(pattern))
+        .toList();
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
     @Autowired
@@ -86,7 +85,7 @@ public class JwtAuthFilter implements WebFilter {
 
             // 3. 커스텀 인증 객체 생성
             GroupwareAuthenticationToken auth = new GroupwareAuthenticationToken(
-                username,
+                username, // email
                 department,
                 name,
                 token,

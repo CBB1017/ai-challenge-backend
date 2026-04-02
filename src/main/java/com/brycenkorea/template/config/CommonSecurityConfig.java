@@ -14,13 +14,16 @@ class CommonSecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
     @Bean
     public ReactiveAuthenticationManager authenticationManager(
         CustomUserDetailsService userDetailsService, // @Service로 등록된 빈이 자동 주입됨
-        PasswordEncoder passwordEncoder) {
+        PasswordEncoder passwordEncoder
+    )
+    {
 
-        UserDetailsRepositoryReactiveAuthenticationManager authManager =
-            new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsService);
+        UserDetailsRepositoryReactiveAuthenticationManager authManager = new UserDetailsRepositoryReactiveAuthenticationManager(
+            userDetailsService);
         authManager.setPasswordEncoder(passwordEncoder);
         return authManager;
     }

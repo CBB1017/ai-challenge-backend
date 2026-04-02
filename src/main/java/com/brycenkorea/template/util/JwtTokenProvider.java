@@ -4,16 +4,12 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.server.reactive.ServerHttpRequest; // WebFlux용으로 변경
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -31,21 +27,18 @@ public class JwtTokenProvider {
 
     public String createToken(String email, String role, String dept, String name, Date expiry) {
         return Jwts.builder()
-                   .subject(email)
-                   .claim("role", role)
-                   .claim("dept", dept)
-                   .claim("name", name)
-                   .expiration(expiry)
-                   .signWith(key)
-                   .compact();
+            .subject(email)
+            .claim("role", role)
+            .claim("dept", dept)
+            .claim("name", name)
+            .expiration(expiry)
+            .signWith(key)
+            .compact();
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token);
+            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
             return true;
         } catch (SecurityException | MalformedJwtException e) {
             log.error("잘못된 JWT 서명 또는 구조입니다.", e);
@@ -63,11 +56,8 @@ public class JwtTokenProvider {
      * 서비스의 SecretKey로 서명된 토큰을 검증하고 페이로드를 반환합니다.
      */
     public Claims getClaims(String token) {
-        return Jwts.parser()
-                   .verifyWith(key) // 생성자에서 만든 SecretKey로 검증
-                   .build()
-                   .parseSignedClaims(token)
-                   .getPayload();
+        return Jwts.parser().verifyWith(key) // 생성자에서 만든 SecretKey로 검증
+            .build().parseSignedClaims(token).getPayload();
     }
 
     public String getUsername(String token) {

@@ -12,12 +12,14 @@ public interface AttendanceRepository extends ReactiveCrudRepository<Attendance,
 
     // 1. 조건 검색 (Flux로 반환)
     // R2DBC에서도 메서드 이름 쿼리를 지원하지만, In 절과 다중 조건은 @Query가 더 확실합니다.
-    @Query("""
-        SELECT * FROM attendance 
-        WHERE attendance_dt = :todayDate 
-          AND member_name IN (:nameSet) 
-          AND position IN (:positionSet)
-    """)
+    @Query(
+        """
+                SELECT * FROM attendance 
+                WHERE attendance_dt = :todayDate 
+                  AND member_name IN (:nameSet) 
+                  AND position IN (:positionSet)
+            """
+    )
     Flux<Attendance> findAllByAttendanceDtAndMemberNameInAndPositionIn(
         String todayDate,
         Set<String> nameSet,

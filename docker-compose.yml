@@ -31,7 +31,7 @@ services:
       - TOKEN=01QWI6OUT42U8
       - TZ=Asia/Seoul
       - MAX_CONCURRENT_SESSIONS=10
-      - CONNECTION_TIMEOUT=10000
+      - CONNECTION_TIMEOUT=300000
     ports:
       - "3001:3000"
     logging:
@@ -50,7 +50,7 @@ services:
         #    ports:
         #      - "3000:3000"
         #    restart: unless-stopped
-        #    networks:
+      #    networks:
       #      - backend
       #    # ?대?留?李⑤떒???먰븯硫??꾨옒泥섎읆 ?ㅽ듃?뚰겕 ?뺤콉 異붽? 怨좊젮
     # cap_drop:

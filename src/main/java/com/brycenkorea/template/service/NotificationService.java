@@ -13,7 +13,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 
 @Service
@@ -30,14 +29,14 @@ public class NotificationService {
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
 
         return notificationRepository.findLatestNotification(
-                                         member.getId(),
-                                         status,
-                                         NotificationResult.SUCCESS.name(),
-                                         todayStart
-                                     )
-                                     .doOnNext(value -> log.info("기존 알림 존재 => {}", value))
-                                     .map(value -> false)          // 데이터가 있으면 이미 보낸 것이므로 false
-                                     .defaultIfEmpty(true);        // 데이터가 없으면 새로 보내야 하므로 true
+                member.getId(),
+                status,
+                NotificationResult.SUCCESS.name(),
+                todayStart
+            )
+            .doOnNext(value -> log.info("기존 알림 존재 => {}", value))
+            .map(value -> false)          // 데이터가 있으면 이미 보낸 것이므로 false
+            .defaultIfEmpty(true);        // 데이터가 없으면 새로 보내야 하므로 true
     }
 
     /**
@@ -54,6 +53,6 @@ public class NotificationService {
         notification.setSlackInfo(dto.member().getSlackMemberId());
 
         return notificationRepository.save(notification)
-                                     .doOnSuccess(saved -> log.info("알림 이력 저장 완료: {}", saved.getId()));
+            .doOnSuccess(saved -> log.info("알림 이력 저장 완료: {}", saved.getId()));
     }
 }

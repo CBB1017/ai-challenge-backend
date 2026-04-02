@@ -1,5 +1,3 @@
 package com.brycenkorea.template.dto.request;
 
-public record ChatRoomRequest(
-    String title
-) {}
+public record ChatRoomRequest(String title) {}

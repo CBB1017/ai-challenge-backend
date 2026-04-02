@@ -39,27 +39,27 @@ public class AttendanceService {
 
         // 2. 기존 데이터 조회 및 Map 변환
         return attendanceRepository.findAllByAttendanceDtAndMemberNameInAndPositionIn(
-                                       getTodayDate(),
-                                       nameSet,
-                                       positionSet
-                                   )
-                                   .collectMap(a -> a.getMemberName() + "::" + a.getPosition()) // Flux를 Mono<Map>으로 변환
-                                   .flatMap(attendanceMap -> {
-                                       // 3. 비동기 처리 루프 (Flux.fromIterable)
-                                       return Flux.fromIterable(attendanceList).flatMap(newEntity -> {
-                                           String key = newEntity.getMemberName() + "::" + newEntity.getPosition();
-                                           Attendance oldEntity = attendanceMap.get(key);
+                getTodayDate(),
+                nameSet,
+                positionSet
+            )
+            .collectMap(a -> a.getMemberName() + "::" + a.getPosition()) // Flux를 Mono<Map>으로 변환
+            .flatMap(attendanceMap -> {
+                // 3. 비동기 처리 루프 (Flux.fromIterable)
+                return Flux.fromIterable(attendanceList).flatMap(newEntity -> {
+                    String key = newEntity.getMemberName() + "::" + newEntity.getPosition();
+                    Attendance oldEntity = attendanceMap.get(key);
 
-                                           if (oldEntity != null) {
-                                               // 기존 데이터가 있으면 매핑 후 업데이트
-                                               attendanceMapper.updateEntity(oldEntity, newEntity);
-                                               return attendanceRepository.save(oldEntity);
-                                           } else {
-                                               // 없으면 신규 저장
-                                               return attendanceRepository.save(newEntity);
-                                           }
-                                       }).then(); // 모든 저장이 끝나면 Mono<Void> 반환
-                                   });
+                    if (oldEntity != null) {
+                        // 기존 데이터가 있으면 매핑 후 업데이트
+                        attendanceMapper.updateEntity(oldEntity, newEntity);
+                        return attendanceRepository.save(oldEntity);
+                    } else {
+                        // 없으면 신규 저장
+                        return attendanceRepository.save(newEntity);
+                    }
+                }).then(); // 모든 저장이 끝나면 Mono<Void> 반환
+            });
     }
 
     /**

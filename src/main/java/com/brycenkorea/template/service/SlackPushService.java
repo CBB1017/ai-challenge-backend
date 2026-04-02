@@ -27,32 +27,29 @@ public class SlackPushService {
         String slackInfo = dto.member().getSlackMemberId();
 
         // 1. 알림 발송 여부 확인 (비동기 결과에 따른 분기)
-        return notificationService.shouldSendAlert(dto.member(), dto.status())
-                                  .flatMap(shouldSend -> {
-                                      if (!shouldSend) {
-                                          return saveResult(dto, NotificationResult.SKIP, null);
-                                      }
+        return notificationService.shouldSendAlert(dto.member(), dto.status()).flatMap(shouldSend -> {
+            if (!shouldSend) {
+                return saveResult(dto, NotificationResult.SKIP, null);
+            }
 
-                                      if (StringUtils.isBlank(slackInfo)) {
-                                          return saveResult(dto, NotificationResult.FAIL, "slackInfo is blank");
-                                      }
+            if (StringUtils.isBlank(slackInfo)) {
+                return saveResult(dto, NotificationResult.FAIL, "slackInfo is blank");
+            }
 
-                                      // 2. Slack 메시지 발송 (동기 SDK 호출을 비동기로 감쌈)
-                                      return Mono.fromCallable(() -> {
-                                                     MethodsClient methods = slack.methods(slackToken);
-                                                     ChatPostMessageResponse res = methods.chatPostMessage(r ->
-                                                         r.channel(slackInfo).text(dto.message())
-                                                     );
+            // 2. Slack 메시지 발송 (동기 SDK 호출을 비동기로 감쌈)
+            return Mono.fromCallable(() -> {
+                    MethodsClient methods = slack.methods(slackToken);
+                    ChatPostMessageResponse res = methods.chatPostMessage(r -> r.channel(slackInfo).text(dto.message()));
 
-                                                     if (!res.isOk()) {
-                                                         throw new RuntimeException(res.getError());
-                                                     }
-                                                     return res;
-                                                 })
-                                                 .subscribeOn(Schedulers.boundedElastic()) // 블로킹 IO를 위한 전용 쓰레드 할당
-                                                 .flatMap(res -> saveResult(dto, NotificationResult.SUCCESS, null))
-                                                 .onErrorResume(e -> saveResult(dto, NotificationResult.FAIL, e.getMessage()));
-                                  });
+                    if (!res.isOk()) {
+                        throw new RuntimeException(res.getError());
+                    }
+                    return res;
+                })
+                .subscribeOn(Schedulers.boundedElastic()) // 블로킹 IO를 위한 전용 쓰레드 할당
+                .flatMap(res -> saveResult(dto, NotificationResult.SUCCESS, null))
+                .onErrorResume(e -> saveResult(dto, NotificationResult.FAIL, e.getMessage()));
+        });
     }
 
     // 결과 저장을 위한 헬퍼 메서드

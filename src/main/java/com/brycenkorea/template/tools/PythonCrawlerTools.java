@@ -24,11 +24,11 @@ public class PythonCrawlerTools {
         try {
             // WebClient를 이용한 비동기 호출
             return webClient.post()
-                            .uri("/crawling/{action}", request.action())
-                            .bodyValue(request) // body() 대신 bodyValue() 사용
-                            .retrieve()
-                            .bodyToMono(String.class)
-                            .block();
+                .uri("/crawling/{action}", request.action())
+                .bodyValue(request) // body() 대신 bodyValue() 사용
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
         } catch (Exception e) {
             return "크롤링 에러 발생: " + e.getMessage();
         }

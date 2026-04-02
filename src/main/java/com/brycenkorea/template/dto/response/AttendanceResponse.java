@@ -5,15 +5,17 @@ import lombok.*;
 
 import java.util.List;
 
-@Schema(description = "근태 데이터 처리 응답", example = """
-{
-  "total": 10,
-  "exe": 8,
-  "failedMembers": [
-    "문병찬대리", "홍길동신입사원"
-  ]
-}
-""")
+@Schema(
+    description = "근태 데이터 처리 응답", example = """
+    {
+      "total": 10,
+      "exe": 8,
+      "failedMembers": [
+        "문병찬대리", "홍길동신입사원"
+      ]
+    }
+    """
+)
 @Getter
 @Setter
 @Builder

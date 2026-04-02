@@ -11,7 +11,7 @@ import java.util.UUID;
 @Table("chat_message")
 @Getter
 @Builder
-public class ChatMessage{
+public class ChatMessage {
 
     @Id
     private UUID messageId;

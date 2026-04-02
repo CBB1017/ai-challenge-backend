@@ -3,26 +3,23 @@ package com.brycenkorea.template.controller;
 import com.brycenkorea.template.dto.ChatMessageResponse;
 import com.brycenkorea.template.dto.ChatRoomResponse;
 import com.brycenkorea.template.dto.request.ChatRoomRequest;
-import com.brycenkorea.template.dto.response.PromptRequest;
-import com.brycenkorea.template.dto.response.PromptResponse;
 import com.brycenkorea.template.entity.ChatRoom;
 import com.brycenkorea.template.repository.ChatMessageRepository;
 import com.brycenkorea.template.repository.ChatRoomRepository;
-import com.brycenkorea.template.service.GeminiService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
+@Slf4j
 public class ChatController {
 
     private final ChatRoomRepository chatRoomRepository;
@@ -30,27 +27,24 @@ public class ChatController {
 
     @GetMapping("/rooms")
     public Flux<ChatRoomResponse> getChatRooms(Authentication authentication) {
-        String userId = authentication.getName();
+        String userId = Objects.requireNonNull(authentication.getPrincipal()).toString();
 
-        return chatRoomRepository.findByUserIdOrderByUpdatedAtDesc(userId)
-                                 .map(ChatRoomResponse::from);
+        return chatRoomRepository.findByUserIdOrderByUpdatedAtDesc(userId).map(ChatRoomResponse::from);
     }
 
     @PostMapping("/room")
     public Mono<ChatRoomResponse> createChatRoom(
         @RequestBody(required = false) ChatRoomRequest request,
         Authentication authentication
-    ) {
-        String userId = authentication.getName();
+    )
+    {
+        String userId = Objects.requireNonNull(authentication.getPrincipal()).toString();
         // 넘어온 title이 없으면 "새로운 대화"를 기본값으로 사용
         String roomTitle = (request != null && request.title() != null && !request.title().isBlank())
             ? request.title()
             : "새로운 대화";
-        ChatRoom newRoom = ChatRoom.builder()
-                                   .userId(userId)
-                                   .title(roomTitle)
-                                   .build();
-
+        ChatRoom newRoom = ChatRoom.builder().userId(userId).title(roomTitle).build();
+        log.info("newRoomd => {}", newRoom);
         return chatRoomRepository.save(newRoom).map(ChatRoomResponse::from);
     }
 
@@ -59,10 +53,6 @@ public class ChatController {
     public Flux<ChatMessageResponse> getMessages(@PathVariable UUID roomId) {
         // V7 인덱스(idx_chat_message_room_created) 덕분에 매우 빠릅니다.
         return chatMessageRepository.findByRoomIdOrderByCreatedAtAsc(roomId)
-                                    .map(msg -> new ChatMessageResponse(
-                                        msg.getRole(),
-                                        msg.getContent(),
-                                        msg.getCreatedAt()
-                                    ));
+            .map(msg -> new ChatMessageResponse(msg.getRole(), msg.getContent(), msg.getCreatedAt()));
     }
 }

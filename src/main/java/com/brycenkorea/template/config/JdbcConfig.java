@@ -31,11 +31,11 @@ public class JdbcConfig {
         // DataSourceBuilder의 .url() 메서드를 사용하면
         // 내부적으로 HikariCP가 요구하는 jdbcUrl 문제까지 깔끔하게 자체 해결합니다.
         return DataSourceBuilder.create()
-                                .driverClassName(driverClassName)
-                                .url(url)
-                                .username(username)
-                                .password(password)
-                                .build();
+            .driverClassName(driverClassName)
+            .url(url)
+            .username(username)
+            .password(password)
+            .build();
     }
 
     @Bean

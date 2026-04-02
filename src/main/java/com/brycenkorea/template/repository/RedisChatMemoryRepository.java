@@ -23,14 +23,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class RedisChatMemoryRepository implements ChatMemoryRepository {
 
+    private static final String PREFIX = "chat:memory:v2:";
     private final ReactiveStringRedisTemplate redisTemplate; // 💡 Reactive로 교체
     private final JsonMapper jsonMapper;
-    private static final String PREFIX = "chat:memory:v2:";
-
-    record MessageDto(String type,
-                      String content,
-                      Map<String, Object> metadata,
-                      List<AssistantMessage.ToolCall> toolCalls) {}
 
     @Override
     public @NonNull List<Message> findByConversationId(@NonNull String conversationId) {
@@ -96,12 +91,10 @@ public class RedisChatMemoryRepository implements ChatMemoryRepository {
 
                 return switch (type) {
                     case "assistant" -> AssistantMessage.builder()
-                                                        .content(dto.content())
-                                                        .properties(metadata)
-                                                        .toolCalls(dto.toolCalls() != null
-                                                            ? dto.toolCalls()
-                                                            : List.of())
-                                                        .build();
+                        .content(dto.content())
+                        .properties(metadata)
+                        .toolCalls(dto.toolCalls() != null ? dto.toolCalls() : List.of())
+                        .build();
 
                     case "system" -> SystemMessage.builder().text(dto.content()).metadata(metadata).build();
 
@@ -124,4 +117,9 @@ public class RedisChatMemoryRepository implements ChatMemoryRepository {
     public void deleteByConversationId(@NonNull String id) {
         redisTemplate.delete(PREFIX + id).block();
     }
+
+    record MessageDto(String type,
+                      String content,
+                      Map<String, Object> metadata,
+                      List<AssistantMessage.ToolCall> toolCalls) {}
 }

@@ -1,3 +1,3 @@
 package com.brycenkorea.template.contants;
 
-public enum YnType { Y, N }
+public enum YnType {Y, N}

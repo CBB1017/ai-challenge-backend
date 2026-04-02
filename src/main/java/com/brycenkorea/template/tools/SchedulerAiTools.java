@@ -18,12 +18,6 @@ public class SchedulerAiTools {
         this.schedulerService = schedulerService;
     }
 
-    // 예약 시에는 LLM에게 jobId를 받지 않고, 백엔드에서 자체 생성합니다.
-    public record ScheduleRequest(String targetTime, String action, Map<String, Object> params) {}
-
-    // 취소 시에는 LLM이 기억하고 있는 UUID 문자열을 받습니다.
-    public record CancelRequest(String jobId) {}
-
     @Tool(description = "사용자의 요청에 따라 특정 시간(예: 2026-03-28T09:00:00)에 작업을 예약합니다. 성공 시 발급되는 UUID 형태의 작업 ID를 반드시 기억하세요.")
     public String scheduleAction(ScheduleRequest request) {
         try {
@@ -54,4 +48,10 @@ public class SchedulerAiTools {
             return "스케줄 취소 실패: " + e.getMessage();
         }
     }
+
+    // 예약 시에는 LLM에게 jobId를 받지 않고, 백엔드에서 자체 생성합니다.
+    public record ScheduleRequest(String targetTime, String action, Map<String, Object> params) {}
+
+    // 취소 시에는 LLM이 기억하고 있는 UUID 문자열을 받습니다.
+    public record CancelRequest(String jobId) {}
 }

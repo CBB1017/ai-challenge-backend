@@ -28,14 +28,14 @@ public class AggregationController {
     @GetMapping("/monthly")
     public Mono<ResponseEntity<AggregationCountDto>> readMonthly(@RequestParam String date) {
         return aggregationService.getAggregatedMonthlyDataByDate(date)
-                                 .map(AggregationCountDto::from)
-                                 .map(ResponseEntity::ok);
+            .map(AggregationCountDto::from)
+            .map(ResponseEntity::ok);
     }
 
     @GetMapping("/period")
     public Mono<ResponseEntity<AggregationCountDto>> readPeriod(@RequestParam String start, @RequestParam String end) {
         return aggregationService.getAggregatedPeriodDataByDate(start, end)
-                                 .map(AggregationCountDto::from)
-                                 .map(ResponseEntity::ok);
+            .map(AggregationCountDto::from)
+            .map(ResponseEntity::ok);
     }
 }
