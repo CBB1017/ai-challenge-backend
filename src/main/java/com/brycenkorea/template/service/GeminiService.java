@@ -2,8 +2,10 @@ package com.brycenkorea.template.service;
 
 import com.brycenkorea.template.config.IntentRouter;
 import com.brycenkorea.template.contants.AgentWorkflowSOP;
+import com.brycenkorea.template.dto.ChatFirstInteractedEvent;
 import com.brycenkorea.template.dto.response.PromptResponse;
 import com.brycenkorea.template.entity.ChatMessage;
+import com.brycenkorea.template.entity.ChatRoom;
 import com.brycenkorea.template.repository.ChatMessageRepository;
 import com.brycenkorea.template.repository.ChatRoomRepository;
 import com.brycenkorea.template.security.GroupwareAuthenticationToken;
@@ -13,6 +15,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class GeminiService {
     private final IntentRouter intentRouter;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public Flux<ChatResponse> askStream(String prompt, String roomId) {
         return ReactiveSecurityContextHolder.getContext()
@@ -46,6 +50,17 @@ public class GeminiService {
 
                 return executeChatFlow(spec, prompt, roomId);
             });
+    }
+    /**
+     * 방 ID가 있으면 존재 확인, 없으면 새로 생성하여 반환
+     */
+    public Mono<UUID> getOrCreateRoom(String roomId, String userId) {
+        if (roomId == null || roomId.isBlank()) {
+            return chatRoomRepository.save(ChatRoom.builder().userId(userId).title("새로운 대화").build())
+                .map(ChatRoom::getRoomId);
+        }
+        // ID가 있으면 UUID로 변환하여 반환
+        return Mono.just(UUID.fromString(roomId));
     }
 
     private ChatClient.ChatClientRequestSpec buildRequestSpec(GroupwareAuthenticationToken auth, AgentWorkflowSOP sop, String prompt, String roomId) {
@@ -71,7 +86,7 @@ public class GeminiService {
         StringBuilder buffer = new StringBuilder();
         UUID roomUuid = UUID.fromString(roomId);
 
-        // 1. 유저 메시지 저장 (깔끔!)
+        // 1. 유저 메시지 저장
         Mono<ChatMessage> saveUserMsg = saveChatMessage(roomUuid, "USER", prompt);
 
         // 2. AI 스트림 정의
@@ -107,36 +122,15 @@ public class GeminiService {
     private Mono<ChatResponse> saveAssistantMessageAndTitle(UUID roomUuid, String prompt, StringBuilder buffer) {
         return Mono.defer(() -> {
             String fullContent = buffer.toString();
+            log.info("[Chain] 답변 저장 시작...");
+            // 1. 메시지 저장 후 제목 체크/이벤트 발행
             return saveChatMessage(roomUuid, "ASSISTANT", fullContent)
-                .doOnSuccess(saved -> triggerTitleGeneration(roomUuid.toString(), prompt, fullContent))
+                .flatMap(savedMsg -> {
+                    log.info("[Chain] 답변 저장 완료, 제목 체크 시작");
+                    return checkAndTriggerTitle(roomUuid, prompt, fullContent);
+                })
                 .then(Mono.empty());
         });
-    }
-
-    // 💡 제목 요약 전용 비동기 메서드 (동일 클래스 내 추가)
-    private Mono<?> generateAndSaveRoomTitle(String roomId, String userMsg, String aiMsg) {
-        String summaryPrompt = String.format("다음 대화를 바탕으로 채팅방의 제목을 15자 이내로 요약해줘.\n유저: %s\nAI: %s", userMsg, aiMsg);
-
-        // 💡 Callable 내부의 블로킹 코드를 명시적으로 boundedElastic 스레드에서 실행
-        return Mono.fromCallable(() -> baseChatClient.prompt().user(summaryPrompt).call().content())
-            .subscribeOn(Schedulers.boundedElastic()) // 👈 이 부분 중요
-            .flatMap(title -> chatRoomRepository.updateTitle(UUID.fromString(roomId), title))
-            .onErrorResume(e -> {
-                log.error("방 제목 생성 실패", e);
-                return Mono.empty();
-            });
-    }
-
-    /**
-     * 채팅 응답 완료 후 비동기로 방 제목 생성 및 저장 트리거
-     */
-    private void triggerTitleGeneration(String roomId, String userPrompt, String aiResponse) {
-        // 제목 생성 로직이 메인 응답 흐름을 방해하지 않도록 비동기 처리
-        generateAndSaveRoomTitle(roomId, userPrompt, aiResponse)
-            .subscribeOn(Schedulers.boundedElastic())
-            .doOnSuccess(title -> log.info("[{}] 방 제목 생성 완료: {}", roomId, title))
-            .doOnError(e -> log.error("[{}] 방 제목 생성 중 에러: {}", roomId, e.getMessage()))
-            .subscribe(); // 비동기 실행 트리거
     }
 
     public Flux<PromptResponse> askStreamProcessed(String prompt, String roomId) {
@@ -157,5 +151,18 @@ public class GeminiService {
             ? chatResponse.getResult().getOutput().getText()
             : "";
         return new PromptResponse(content);
+    }
+
+    private Mono<Void> checkAndTriggerTitle(UUID roomUuid, String userMsg, String aiMsg) {
+        return chatRoomRepository.findById(roomUuid)
+            .flatMap(room -> {
+                // 공백이나 대소문자 문제일 수 있으므로 trim()과 equals 처리 주의
+                if (room.getTitle() != null && room.getTitle().trim().equals("새로운 대화")) {
+                    eventPublisher.publishEvent(new ChatFirstInteractedEvent(roomUuid, userMsg, aiMsg));
+                }
+                return Mono.empty();
+            })
+            .doOnError(e -> log.error("[Step 2 Error] DB 조회 중 에러: {}", e.getMessage()))
+            .then();
     }
 }
