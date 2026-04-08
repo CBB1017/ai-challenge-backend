@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-@Service // @Component와 CommandLineRunner 제거
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class LocalFileLoader {
@@ -25,7 +25,10 @@ public class LocalFileLoader {
             Path path = Paths.get(pathStr);
             try (Stream<Path> paths = Files.walk(path)) {
                 paths.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".pdf") || p.toString().endsWith(".docx"))
+                    .filter(p -> p.toString().endsWith(".pdf")
+                        || p.toString().endsWith(".docx")
+                        || p.toString().endsWith(".txt")
+                    )
                     .forEach(p -> documentLoaderService.loadDocument(new FileSystemResource(p)));
             } catch (Exception e) {
                 log.error("파일 적재 에러", e);

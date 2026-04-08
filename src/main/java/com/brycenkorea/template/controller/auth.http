@@ -19,6 +19,11 @@ Content-Type: application/json
 {
   "prompt": "내 이전 대화에 대해 기억하고 있니?"
 }
+### Call secured API
+POST http://localhost:8080/api/admin/ingest
+#Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
 
 ### call playwright
 GET http://localhost:3000

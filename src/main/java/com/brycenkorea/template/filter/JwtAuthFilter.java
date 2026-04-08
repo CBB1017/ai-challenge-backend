@@ -43,7 +43,6 @@ public class JwtAuthFilter implements WebFilter {
         .map(pattern -> new PathPatternParser().parse(pattern))
         .toList();
     private final JwtTokenProvider jwtTokenProvider;
-    private final CustomUserDetailsService userDetailsService;
     @Autowired
     JsonMapper jsonMapper;
 

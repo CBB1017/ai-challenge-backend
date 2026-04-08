@@ -32,7 +32,8 @@ public class ChatClientConfig {
         AsyncMcpToolCallbackProvider mcpTools
     )
     {
-        return builder.defaultSystem("""
+
+        String systemText = """
                 너는 우리 회사의 친절하고 똑똑한 AI 비서야.
                 [사용자 정보]
                 - 현재 대화 중인 사용자 ID: {userId}
@@ -46,10 +47,12 @@ public class ChatClientConfig {
                 Context information is below.
                 
                 ---------------------
-                <context>
+                {context}
                 ---------------------
                 
-                """)
+                """;
+
+        return builder.defaultSystem(systemText)
             .defaultToolCallbacks(mcpTools)
             .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
             .build();

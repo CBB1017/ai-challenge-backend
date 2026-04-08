@@ -13,7 +13,7 @@ import java.util.List;
 public class CorsConfig {
 
     @Bean
-    public CorsWebFilter corsWebFilter() { // 반환 타입이 CorsWebFilter로 변경됩니다.
+    public CorsWebFilter corsWebFilter() {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowCredentials(true);

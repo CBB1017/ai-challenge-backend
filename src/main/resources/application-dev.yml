@@ -56,6 +56,7 @@ logging:
     io.micrometer.observation.contextpropagation: ERROR
     org:
       springframework:
+        web.reactive.function.client.ExchangeFunctions: TRACE
         ai:
           chat:
             client:

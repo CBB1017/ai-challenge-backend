@@ -18,8 +18,12 @@ public class IntentRouter {
 
     public IntentRouter(ChatClient.Builder builder) {
         // 라우터 전용으로 가볍고 빠른 모델(예: Gemini 1.5 Flash)을 세팅하면 비용과 속도를 아낄 수 있습니다.
-        this.routerClient = builder.defaultSystem("당신은 사내 그룹웨어 사용자의 요청 의도를 분류하는 라우터입니다. " + "사용자의 입력을 분석하여 다음 중 하나의 카테고리로 분류하세요: " + "OVERTIME(잔업/특근 신청), VACATION(휴가/연차 신청), POLICY(사내 규정 문의), GENERAL(일반 대화).")
-            .build();
+        this.routerClient = builder.defaultSystem(
+            "당신은 사내 그룹웨어 사용자의 요청 의도를 분류하는 라우터입니다. " +
+                "사용자의 현재 입력과, 필요한 경우 직전 대화 맥락을 분석하여 다음 중 하나로 분류하세요: " +
+                "OVERTIME(잔업/특근 신청), VACATION(휴가/연차 신청), POLICY(사내 규정 문의), GENERAL(일반 대화). " +
+                "만약 사용자가 '응', '진행해', '맞아' 등 긍정/동의의 대답을 했다면, 직전 AI 질문의 문맥을 따라가세요."
+        ).build();
 
         // TODO: 실제 환경에서는 DB나 YAML에서 읽어와 Registry를 초기화합니다.
         initSOPRegistry();
@@ -50,7 +54,7 @@ public class IntentRouter {
     // 메인 분류 메서드
     public AgentWorkflowSOP classify(String userMessage) {
 
-        // 1단계: 고속 라우터가 먼저 처리 (비용 0, 속도 즉시)
+        // 1단계: 고속 라우터가 먼저 처리
         AgentWorkflowSOP matchedSop = fastMatch(userMessage);
 
         if (matchedSop != null) {
@@ -88,9 +92,9 @@ public class IntentRouter {
                      </step>
                     \s
                      <constraint>
+                     - 오늘 또는 해당 날짜의 실제 근무 시간이 없더라도 안내 후 사용자가 재차 요청을 하면 STEP 1,2를 생략한다
                      - STEP 3을 수행한 직후에는 반드시 [STOP] 하고 사용자의 대답을 기다려야 합니다.
                      - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 STEP 4(잔업_상신_MCP)를 선제적으로 호출하지 마십시오.
-                     - MCP 도구의 `target_user_id` 파라미터에는 시스템에 제공된 {userId}를 사용하십시오.
                      </constraint>
                 """, false
             )

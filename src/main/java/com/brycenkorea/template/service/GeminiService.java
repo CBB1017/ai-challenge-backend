@@ -64,28 +64,35 @@ public class GeminiService {
     }
 
     private ChatClient.ChatClientRequestSpec buildRequestSpec(GroupwareAuthenticationToken auth, AgentWorkflowSOP sop, String prompt, String roomId) {
+        log.info("sop rule => {}", sop.rules());
         ChatClient.ChatClientRequestSpec spec = baseChatClient.prompt()
             .system(s -> s.param("userId", Objects.requireNonNull(auth.getPrincipal()))
                 .param("userDept", auth.getDepartment())
                 .param("userName", auth.getName())
                 .param("context", sop.rules()))
             .user(prompt)
+            .toolContext(Map.of(
+                "userId", Objects.requireNonNull(auth.getPrincipal()),
+                "userDept", auth.getDepartment(),
+                "userName", auth.getName()
+            ))
             .advisors(a -> a
                 .param(ChatMemory.CONVERSATION_ID, roomId)
+                .param("userDept", auth.getDepartment())
+                .param("userName", auth.getName())
+                .param("context", sop.rules())
                 .param("user", Map.of(
                     "id", Objects.requireNonNull(auth.getPrincipal()),
                     "dept", auth.getDepartment(),
                     "name", auth.getName()
                 ))
             );
-
         return sop.requiresRag() ? spec.advisors(ragAdvisor) : spec;
     }
 
     private Flux<ChatResponse> executeChatFlow(ChatClient.ChatClientRequestSpec spec, String prompt, String roomId) {
         StringBuilder buffer = new StringBuilder();
         UUID roomUuid = UUID.fromString(roomId);
-
         // 1. 유저 메시지 저장
         Mono<ChatMessage> saveUserMsg = saveChatMessage(roomUuid, "USER", prompt);
 
