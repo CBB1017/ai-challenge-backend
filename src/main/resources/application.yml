@@ -55,7 +55,7 @@ spring:
             crawling:
               url: http://localhost:8000
               endpoint: /mcp
-        request-timeout: 20s
+        request-timeout: 45s
         type: async
   data:
     redis:
