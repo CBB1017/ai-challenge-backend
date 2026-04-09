@@ -44,12 +44,14 @@ public class GeminiService {
         return ReactiveSecurityContextHolder.getContext()
             .mapNotNull(SecurityContext::getAuthentication)
             .cast(GroupwareAuthenticationToken.class)
-            .flatMapMany(auth -> {
-                AgentWorkflowSOP sop = intentRouter.classify(prompt);
-                ChatClient.ChatClientRequestSpec spec = buildRequestSpec(auth, sop, prompt, roomId);
-
-                return executeChatFlow(spec, prompt, roomId);
-            });
+            .flatMapMany(auth ->
+                // 라우팅(Redis 확인 포함)을 먼저 비동기로 수행
+                intentRouter.determineSop(prompt, roomId)
+                    .flatMapMany(sop -> {
+                        ChatClient.ChatClientRequestSpec spec = buildRequestSpec(auth, sop, prompt, roomId);
+                        return executeChatFlow(spec, prompt, roomId);
+                    })
+            );
     }
     /**
      * 방 ID가 있으면 존재 확인, 없으면 새로 생성하여 반환

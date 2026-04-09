@@ -18,6 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 사용 안하는중 (postgresql로 활용 중)
+ */
 @Repository
 @RequiredArgsConstructor
 @Slf4j
