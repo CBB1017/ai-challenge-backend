@@ -4,6 +4,7 @@ import com.brycenkorea.template.contants.AgentWorkflowSOP;
 import com.brycenkorea.template.util.ChatStateManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -17,17 +18,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public class IntentRouter {
 
     private final ChatClient routerClient;
+    private final ChatMemory chatMemory;
     private final ChatStateManager stateManager;
     private final Map<String, AgentWorkflowSOP> sopRegistry = new ConcurrentHashMap<>();
 
-    public IntentRouter(ChatClient.Builder builder, ChatStateManager stateManager) {
+    public IntentRouter(ChatClient.Builder builder, ChatMemory chatMemory, ChatStateManager stateManager) {
         // 라우터 전용으로 가볍고 빠른 모델(예: Gemini 1.5 Flash)을 세팅하면 비용과 속도를 아낄 수 있습니다.
         this.routerClient = builder.defaultSystem(
             "당신은 사내 그룹웨어 사용자의 요청 의도를 분류하는 라우터입니다. " +
                 "사용자의 현재 입력과, 필요한 경우 직전 대화 맥락을 분석하여 다음 중 하나로 분류하세요: " +
-                "OVERTIME(잔업/특근 신청), VACATION(휴가/연차 신청), POLICY(사내 규정 문의), GENERAL(일반 대화). " +
+                "OVERTIME_ONEDAY(특정 날짜의 잔업/특근 신청), OVERTIME_MONTHLY(특정 달의 잔업/특근 신청), VACATION(휴가/연차 신청), POLICY(사내 규정 문의), GENERAL(일반 대화). " +
                 "만약 사용자가 '응', '진행해', '맞아' 등 긍정/동의의 대답을 했다면, 직전 AI 질문의 문맥을 따라가세요."
         ).build();
+        this.chatMemory = chatMemory;
         this.stateManager = stateManager;
 
         // TODO: 실제 환경에서는 DB나 YAML에서 읽어와 Registry를 초기화합니다.
@@ -56,10 +59,10 @@ public class IntentRouter {
                         log.info("사용자 승인 확인 - 결재 상신 플로우로 넘기고 상태는 초기화(Clear) 합니다.");
                         // 여기서 상태를 지워주어야 상신 후 다음 질문("휴가도 신청해줘" 등)이 먹힙니다.
                         return stateManager.clearState(roomId)
-                            .thenReturn(sopRegistry.get("OVERTIME"));
+                            .thenReturn(sopRegistry.get("OVERTIME_ONEDAY"));
                     }
                     // 승인도 거절도 아닌 다른 대답("내일로 바꿔줘" 등)이면 계속 가둬둡니다.
-                    return Mono.just(sopRegistry.get("OVERTIME"));
+                    return Mono.just(sopRegistry.get("OVERTIME_ONEDAY"));
                 }
 
                 // 알 수 없는 상태면 GENERAL
@@ -81,10 +84,10 @@ public class IntentRouter {
             }));
     }
 
-    // 🚀 [새로 추가된 로직] 특정 SOP로 분류되었을 때 상태를 잠그는(Set) 역할
+    // 특정 SOP로 분류되었을 때 상태를 잠그는(Set) 역할
     private Mono<AgentWorkflowSOP> applyStateAndReturn(String roomId, AgentWorkflowSOP sop) {
-        // OVERTIME 플로우에 처음 진입했다면 상태를 저장합니다.
-        if ("OVERTIME".equals(sop.intentId())) {
+        // 단일 날짜 플로우에 처음 진입했다면 상태를 저장합니다. (월 단위는 잠그지 않음)
+        if ("OVERTIME_ONEDAY".equals(sop.intentId())) {
             log.info("🔒 [상태 잠금] {} 방에 OVERTIME_WAITING 상태 부여", roomId);
             return stateManager.setState(roomId, "OVERTIME_WAITING")
                 .thenReturn(sop);
@@ -98,7 +101,7 @@ public class IntentRouter {
         return clean.contains("아니") || clean.contains("취소") || clean.contains("됐어") || clean.contains("하지마");
     }
 
-    // 🚀 [새로 추가된 로직] 승인 의도 파악
+    // 승인 의도 파악
     private boolean isConfirmIntent(String text) {
         String clean = text.replaceAll("\\s+", "");
         return clean.contains("응") || clean.contains("어") || clean.contains("맞아") ||
@@ -120,19 +123,24 @@ public class IntentRouter {
 
     // 1차 고속 라우터: 키워드 기반 분류
     private AgentWorkflowSOP fastMatch(String text) {
-        // 공백 제거 및 소문자 변환으로 검색 확률을 높임
         String cleanText = text.replaceAll("\\s+", "").toLowerCase();
 
-        if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") || cleanText.contains("야근") || cleanText.contains(
-            "초과근무"))
-        {
-            return sopRegistry.get("OVERTIME");
+        if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
+            cleanText.contains("야근") || cleanText.contains("초과근무")) {
+
+            // 월 단위 요청인지 파악
+            if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달")) {
+                return sopRegistry.get("OVERTIME_MONTHLY");
+            }
+            // 그 외에는 전부 단일 날짜로 취급
+            return sopRegistry.get("OVERTIME_ONEDAY");
         }
-        if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") || cleanText.contains("반반차") || cleanText.contains(
-            "보상휴가") || cleanText.contains("결근"))
-        {
+
+        if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") ||
+            cleanText.contains("반반차") || cleanText.contains("보상휴가") || cleanText.contains("결근")) {
             return sopRegistry.get("VACATION");
         }
+
         if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || cleanText.contains("매뉴얼")) {
             return sopRegistry.get("POLICY");
         }
@@ -140,59 +148,55 @@ public class IntentRouter {
         return null;
     }
 
-    // 메인 분류 메서드
-    public AgentWorkflowSOP classify(String userMessage) {
-
-        // 1단계: 고속 라우터가 먼저 처리
-        AgentWorkflowSOP matchedSop = fastMatch(userMessage);
-
-        if (matchedSop != null) {
-            log.info("⚡ Fast Router 매칭 성공: {}", matchedSop.intentId());
-            return matchedSop;
-        }
-
-        // 2단계: 키워드에 안 걸린 복잡한 문장만 LLM 라우터 가동
-        log.info("🤖 LLM Router 가동 (의도 파악 중)...");
-        try {
-            IntentClassification result = routerClient.prompt()
-                .user(userMessage)
-                .call()
-                .entity(IntentClassification.class);
-
-            return sopRegistry.getOrDefault(Objects.requireNonNull(result).category(), sopRegistry.get("GENERAL"));
-        } catch (Exception e) {
-            log.info("LLM 라우터 실패, 기본값 반환: {}", e.getMessage());
-            return sopRegistry.get("GENERAL");
-        }
-    }
-
     private void initSOPRegistry() {
+        // 1. 단일 날짜 전용 플로우 (기존과 동일 + 명확화)
         sopRegistry.put(
-            "OVERTIME", new AgentWorkflowSOP(
-                "OVERTIME", """
-                     당신은 현재 [잔업/특근 신청 워크플로우]를 수행 중입니다.
+            "OVERTIME_ONEDAY", new AgentWorkflowSOP(
+                "OVERTIME_ONEDAY", """
+                     당신은 현재 [단일 날짜 잔업/특근 신청 워크플로우]를 수행 중입니다.
                      아래의 절차(<step>)와 제약사항(<constraint>)을 엄격하게 준수하세요.
-                    \s
+                
                      <step>
-                     1. 사용자가 시간을 명시하지 않았다면, '근태_조회_MCP'를 호출하여 오늘 또는 해당 날짜의 실제 퇴근 시간을 조회한다.
-                     2. 조회된 퇴근 시간을 분석하여 규정에 맞는 잔업 인정 시간(예: 19:00 ~ 21:30)을 계산한다.
+                     1. 사용자가 시간을 명시하지 않았다면 다시 사용자에게 정확한 ot_date를 물어보게 한다.
+                     2. 'get_team_attendance'를 호출하여 해당 날짜의 실제 퇴근 시간을 조회한다.
                      3. 계산된 시간을 사용자에게 친절하게 안내하고, "이 시간으로 결재 상신을 진행할까요?"라고 묻는다.
-                     4. 사용자가 동의(승인)하면, 비로소 '잔업_상신_MCP'를 호출하여 기안을 완료한다.
+                     4. 사용자가 동의(승인)하면, 'request_overtime_approval'(request_type="oneday")를 호출하여 기안을 완료한다.
                      </step>
-                    \s
+                
                      <constraint>
-                     - 오늘 또는 해당 날짜의 실제 근무 시간이 없더라도 안내 후 사용자가 재차 요청을 하면 STEP 1,2를 생략한다
                      - STEP 3을 수행한 직후에는 반드시 [STOP] 하고 사용자의 대답을 기다려야 합니다.
-                     - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 STEP 4(잔업_상신_MCP)를 선제적으로 호출하지 마십시오.
+                     - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 STEP 4를 선제적으로 호출하지 마십시오.
                      </constraint>
                 """, false
             )
         );
+
+        // 2. 월 단위 전용 플로우 (원샷 실행)
         sopRegistry.put(
-            "POLICY",
-            new AgentWorkflowSOP("POLICY", "[사내 규정 답변]\n검색된 RAG 문서를 바탕으로 친절하고 정확하게 답변하세요.", true)
+            "OVERTIME_MONTHLY", new AgentWorkflowSOP(
+                "OVERTIME_MONTHLY", """
+                     당신은 현재 [월 단위 잔업/특근 일괄 신청 워크플로우]를 수행 중입니다.
+                     월 단위 상신은 도구 내부에서 일괄 처리되므로 사전 승인 절차가 필요 없습니다.
+                
+                     <step>
+                     1. 대화 문맥에서 사용자가 원하는 연도(target_year)와 월(target_month)을 지정했다면 값을 세팅하고, 이번달 또는 저번달과 같은 표현했다면 문자열 그대로 보냅니다.
+                     2. 사용자에게 되묻지 말고 즉시 '잔업_상신_MCP'(request_type="monthly") 도구를 호출하세요.
+                     3. 상신 도구의 실행 결과(성공/실패 메시지)를 바탕으로 사용자에게 친절하게 최종 처리 내역을 안내하고 대화를 종료합니다.
+                     </step>
+                
+                     <constraint>
+                     - 중간 확인 과정 없이 즉시 MCP 도구를 실행해야 합니다.
+                     </constraint>
+                """, false
+            )
         );
-        sopRegistry.put("GENERAL", new AgentWorkflowSOP("GENERAL", "특별한 도구 호출 없이 친절하게 응대하세요.", false));
+
+        sopRegistry.put("POLICY", new AgentWorkflowSOP("POLICY", "[사내 규정 답변]\n검색된 RAG 문서를 바탕으로 친절하고 정확하게 답변하세요.", true));
+        sopRegistry.put("GENERAL", new AgentWorkflowSOP("GENERAL", """
+            일반 대화로 분기되었지만 MCP 도구를 호출해야 할수도 있습니다.
+            이전 대화를 참조하고 적절하고 빠른 판단으로 사용자의 요청을 해결하세요.
+            판단이 어려우면 바로 사용자에게 다시 질문하세요.
+            """, false));
     }
 
     // Spring AI가 구조화된 출력을 위해 사용할 내부 레코드

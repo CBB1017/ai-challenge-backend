@@ -23,10 +23,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -67,10 +67,14 @@ public class GeminiService {
 
     private ChatClient.ChatClientRequestSpec buildRequestSpec(GroupwareAuthenticationToken auth, AgentWorkflowSOP sop, String prompt, String roomId) {
         log.info("sop rule => {}", sop.rules());
+        LocalDateTime now = LocalDateTime.now();
+        String currentDateTime = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        String currentDayOfWeek = now.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.KOREAN);
+
         ChatClient.ChatClientRequestSpec spec = baseChatClient.prompt()
-            .system(s -> s.param("userId", Objects.requireNonNull(auth.getPrincipal()))
-                .param("userDept", auth.getDepartment())
-                .param("userName", auth.getName())
+            .system(s -> s
+                .param("currentDateTime", currentDateTime)
+                .param("currentDayOfWeek", currentDayOfWeek)
                 .param("context", sop.rules()))
             .user(prompt)
             .toolContext(Map.of(
@@ -80,14 +84,6 @@ public class GeminiService {
             ))
             .advisors(a -> a
                 .param(ChatMemory.CONVERSATION_ID, roomId)
-                .param("userDept", auth.getDepartment())
-                .param("userName", auth.getName())
-                .param("context", sop.rules())
-                .param("user", Map.of(
-                    "id", Objects.requireNonNull(auth.getPrincipal()),
-                    "dept", auth.getDepartment(),
-                    "name", auth.getName()
-                ))
             );
         return sop.requiresRag() ? spec.advisors(ragAdvisor) : spec;
     }
