@@ -76,11 +76,10 @@ public class IntentRouter {
                 log.info("기존 로직의 결과 => {}", matchedSop);
                 if (matchedSop != null) {
                     return applyStateAndReturn(roomId, matchedSop);
+                }else{
+                    return Mono.just(sopRegistry.get("GENERAL"));
                 }
 
-                return Mono.fromCallable(() -> classifyLlm(userMessage))
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .flatMap(sop -> applyStateAndReturn(roomId, sop));
             }));
     }
 
