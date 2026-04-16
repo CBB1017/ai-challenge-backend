@@ -19,12 +19,11 @@ public class ChatStateManager {
     // 현재 상태 조회
     public Mono<String> getState(String roomId) {
         return redisTemplate.opsForValue().get(KEY_PREFIX + roomId)
-            // Redis가 1초 안에 대답 안 하면 버림
             .timeout(Duration.ofSeconds(1))
             .onErrorResume(e -> {
-                // Redis가 죽었거나 느리면 그냥 "상태 없음(empty)"으로 간주하고 대화 진행
-                log.error("[Redis 에러] 상태 조회 실패, 무시하고 진행: {}", e.getMessage());
-                return Mono.empty();
+                log.error("[Redis 에러] 상태 조회 실패: {}", e.getMessage());
+                // 에러 발생 시 일반 empty가 아닌 ERROR를 반환하여 Router에서 인식하게 함
+                return Mono.just("REDIS_ERROR");
             });
     }
 
