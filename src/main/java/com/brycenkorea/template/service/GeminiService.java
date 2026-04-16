@@ -140,9 +140,22 @@ public class GeminiService {
 
     public Flux<PromptResponse> askStreamProcessed(String prompt, String roomId) {
         return askStream(prompt, roomId)
-            .filter(this::isNotToolCall) // Tool Call 체크 로직 분리
+            .filter(this::isNotToolCall)
             .map(this::convertToPromptResponse)
             .filter(resp -> !resp.response().isEmpty())
+            .onErrorResume(e -> {
+                log.error("[Gemini 에러 감지] 원인: {}", e.getMessage());
+                String userFriendlyMessage = "죄송합니다. 현재 서비스 이용량이 많아 잠시 후 다시 시도해 주세요.";
+                
+                // 429 Quota Exceeded 에러인 경우 구체적인 안내
+                if (e.getMessage().contains("429") || e.getMessage().contains("quota")) {
+                    userFriendlyMessage = "현재 API 호출 할당량이 초과되었습니다. 잠시 후(약 1분 뒤) 다시 요청해 주시기 바랍니다.";
+                } else if (e.getMessage().contains("safety")) {
+                    userFriendlyMessage = "입력하신 내용이 안전 정책에 의해 차단되었습니다. 다른 방식으로 질문해 주세요.";
+                }
+
+                return Flux.just(new PromptResponse(userFriendlyMessage));
+            })
             .doOnNext(msg -> log.info("최종 발송 데이터: {}", msg.response()));
     }
 

@@ -4,7 +4,6 @@ import com.brycenkorea.template.contants.AgentWorkflowSOP;
 import com.brycenkorea.template.util.ChatStateManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -21,13 +20,25 @@ public class IntentRouter {
     private final ChatStateManager stateManager;
     private final Map<String, AgentWorkflowSOP> sopRegistry = new ConcurrentHashMap<>();
 
-    public IntentRouter(ChatClient.Builder builder, ChatMemory chatMemory, ChatStateManager stateManager) {
-        // 라우터 전용으로 가볍고 빠른 모델(예: Gemini 1.5 Flash)을 세팅하면 비용과 속도를 아낄 수 있습니다.
+    public IntentRouter(ChatClient.Builder builder, ChatStateManager stateManager) {
+        // 라우터 전용으로 가볍고 빠른 모델을 세팅합니다.
         this.routerClient = builder.defaultSystem(
-            "당신은 사내 그룹웨어 사용자의 요청 의도를 분류하는 라우터입니다. " +
-                "사용자의 현재 입력과, 필요한 경우 직전 대화 맥락을 분석하여 다음 중 하나로 분류하세요: " +
-                "OVERTIME_ONEDAY(특정 날짜의 잔업/특근 신청), OVERTIME_MONTHLY(특정 달의 잔업/특근 신청), VACATION(휴가/연차 신청), POLICY(사내 규정 문의), GENERAL(일반 대화). " +
-                "만약 사용자가 '응', '진행해', '맞아' 등 긍정/동의의 대답을 했다면, 직전 AI 질문의 문맥을 따라가세요."
+            """
+                당신은 사내 그룹웨어 사용자의 요청 의도를 분류하는 고성능 라우터입니다.
+                
+                [미션]
+                사용자의 현재 입력과 직전 대화 맥락을 분석하여 다음 카테고리 중 하나로 분류하세요:
+                1. OVERTIME_ONEDAY: 특정 날짜의 잔업/특근 신청
+                2. OVERTIME_MONTHLY: 특정 달(월)의 잔업/특근 일괄 신청
+                3. VACATION: 휴가, 연차, 반차, 보상휴가 신청
+                4. POLICY: 사내 규정, 지침, 매뉴얼 문의 (RAG 필요)
+                5. GENERAL: 인사, 감사, 일반 대화, 또는 위 카테고리에 해당하지 않는 경우
+                
+                [중요 제약사항]
+                - 사용자가 '응', '진행해', '상신해줘', '그래', '확인' 등 긍정/동의를 하거나 결재 진행을 요청했다면, 직전 대화에서 어떤 신청/결재 절차가 논의 중이었는지 파악하여 해당 카테고리를 선택하세요.
+                - 예를 들어, 직전에 '잔업 시간을 계산'했거나 '휴가 일자를 확인'한 뒤 '상신(신청)할까요?'라고 물어본 상태라면, 사용자의 동의 시점에 각각 'OVERTIME_ONEDAY' 또는 'VACATION'으로 정확히 분류해야 합니다.
+                - 오직 카테고리 이름만 출력하세요.
+                """
         ).build();
         this.stateManager = stateManager;
 
@@ -39,17 +50,16 @@ public class IntentRouter {
      * 🚀 [고도화됨] LLM Fallback 및 주제 전환 안내가 포함된 비동기 라우터
      */
     public Mono<AgentWorkflowSOP> determineSop(String userMessage, String roomId) {
+        long startTime = System.currentTimeMillis();
         return stateManager.getState(roomId)
             .flatMap(state -> {
-                // Redis 에러 발생 시 안내 문구 주입 (5번)
+                log.info("[IntentRouter] 소요시간(Redis조회): {}ms, 상태: {}", (System.currentTimeMillis() - startTime), state);
+
                 if ("REDIS_ERROR".equals(state)) {
-                    log.warn("Redis 에러 감지 - 사용자에게 안내 문구 주입");
                     AgentWorkflowSOP general = sopRegistry.get("GENERAL");
                     String warning = "\n\n[주의] 현재 시스템 문제로 대화 맥락 유지(상태 관리)가 원활하지 않을 수 있습니다. 중요한 상신 전에는 다시 한번 확인해 주세요.";
                     return Mono.just(new AgentWorkflowSOP(general.intentId(), general.rules() + warning, general.requiresRag()));
                 }
-
-                log.info("[Redis 검문소 통과] 진행 중인 상태: {}", state);
 
                 // 1. 상태가 있더라도 사용자가 아예 다른 명확한 요청을 했는지 확인 (Topic Switching)
                 AgentWorkflowSOP fastIntent = fastMatch(userMessage);
@@ -59,11 +69,11 @@ public class IntentRouter {
                         log.info("사용자 의도 변경 감지 - 기존 상태({}) 초기화 후 {} 플로우 진입", state, fastIntent.intentId());
                         return stateManager.clearState(roomId)
                             .then(applyStateAndReturn(roomId, fastIntent))
-                            .map(sop -> injectSwitchNotice(sop, state)); // 주제 전환 알림 주입
+                            .map(sop -> injectSwitchNotice(sop, state));
                     }
                 }
 
-                // 2. 취소 의도 파악 (확장된 단어셋)
+                // 2. 취소 의도 파악
                 if (isCancelIntent(userMessage)) {
                     log.info("사용자 취소 요청 - 상태 초기화");
                     return stateManager.clearState(roomId)
@@ -77,31 +87,63 @@ public class IntentRouter {
                     if (isConfirmIntent(userMessage)) {
                         log.info("사용자 승인 확인 - {} 결재 상신 플로우로 넘기고 상태 초기화", baseIntentId);
                         return stateManager.clearState(roomId)
-                            .thenReturn(sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL")));
+                            .thenReturn(injectConfirmNotice(sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"))));
                     }
                     return Mono.just(sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL")));
                 }
 
                 return Mono.just(sopRegistry.get("GENERAL"));
             })
-            // 2. Redis에 상태가 없거나 에러 발생 시
             .switchIfEmpty(Mono.defer(() -> {
                 log.info("상태 없음, 일반 라우터 가동");
-
                 AgentWorkflowSOP matchedSop = fastMatch(userMessage);
                 if (matchedSop != null) {
                     return applyStateAndReturn(roomId, matchedSop);
                 } else {
-                    // 1번 보안: 키워드 매칭 실패 시 비동기 LLM 라우팅 시도
                     return classifyLlmAsync(userMessage)
                         .flatMap(sop -> applyStateAndReturn(roomId, sop));
                 }
-            }));
+            }))
+            .doOnNext(sop -> log.info("[IntentRouter] 최종 결정: {} (총 소요시간: {}ms)", sop.intentId(), (System.currentTimeMillis() - startTime)));
+    }
+
+    // 승인 시 메인 LLM에게 즉시 실행 지침을 주입하여 결정 속도 향상
+    private AgentWorkflowSOP injectConfirmNotice(AgentWorkflowSOP sop) {
+        String confirmGuide = "\n\n[안내] 사용자가 방금 요청을 최종 승인(진행)했습니다. 추가 질문 없이 즉시 관련 MCP 도구를 호출하여 처리를 완료하세요.";
+        return new AgentWorkflowSOP(sop.intentId(), sop.rules() + confirmGuide, sop.requiresRag());
+    }
+
+    // 1차 고속 라우터: 키워드 기반 분류 (지연 방지를 위해 최대한 여기서 걸러야 함)
+    private AgentWorkflowSOP fastMatch(String text) {
+        String cleanText = text.replaceAll("\\s+", "").toLowerCase();
+
+        // 긍정형 대답은 키워드 매칭에서 제외하여 WAITING 로직을 타게 함
+        if (isConfirmIntent(text)) return null;
+
+        if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
+            cleanText.contains("야근") || cleanText.contains("초과근무") || cleanText.contains("연장근무")) {
+
+            if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달")) {
+                return sopRegistry.get("OVERTIME_MONTHLY");
+            }
+            return sopRegistry.get("OVERTIME_ONEDAY");
+        }
+
+        if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") ||
+            cleanText.contains("반반차") || cleanText.contains("보상휴가") || cleanText.contains("결근") ||
+            cleanText.contains("병가") || cleanText.contains("조퇴")) {
+            return sopRegistry.get("VACATION");
+        }
+
+        if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || cleanText.contains("매뉴얼") || cleanText.contains("가이드")) {
+            return sopRegistry.get("POLICY");
+        }
+
+        return null;
     }
 
     // 특정 SOP로 분류되었을 때 상태를 잠그는(Set) 역할
     private Mono<AgentWorkflowSOP> applyStateAndReturn(String roomId, AgentWorkflowSOP sop) {
-        // 단일 날짜 기반 다중 턴 워크플로우(OT 단일, 휴가)에 대해 상태를 저장합니다.
         if ("OVERTIME_ONEDAY".equals(sop.intentId()) || "VACATION".equals(sop.intentId())) {
             String stateName = sop.intentId() + "_WAITING";
             log.info("🔒 [상태 잠금] {} 방에 {} 상태 부여", roomId, stateName);
@@ -111,41 +153,27 @@ public class IntentRouter {
         return Mono.just(sop);
     }
 
-    // 주제 전환 시 AI에게 사용자 알림을 유도하는 프롬프트 주입 (4번)
+    // 주제 전환 시 AI에게 사용자 알림을 유도하는 프롬프트 주입
     private AgentWorkflowSOP injectSwitchNotice(AgentWorkflowSOP sop, String oldState) {
+        if (oldState == null) return sop;
         String baseState = oldState.split(":")[0].replace("_WAITING", "");
         String notice = String.format("""
-            [알림] 사용자가 기존 '%s' 관련 작업을 중단하고 새로운 요청을 했습니다. \
+            \n[알림] 사용자가 기존 '%s' 관련 작업을 중단하고 새로운 요청을 했습니다. \
             기존 작업이 중단되었음을 언급하며 새로운 요청을 친절히 도와주세요.""", baseState);
         return new AgentWorkflowSOP(sop.intentId(), sop.rules() + notice, sop.requiresRag());
     }
 
-    // LLM 분류 비동기 처리 (1번)
+    // LLM 분류 비동기 처리
     private Mono<AgentWorkflowSOP> classifyLlmAsync(String userMessage) {
         return Mono.fromCallable(() -> classifyLlm(userMessage))
             .subscribeOn(Schedulers.boundedElastic())
-            .timeout(java.time.Duration.ofSeconds(2)) // 라우팅 지연 방지
-            .onErrorReturn(sopRegistry.get("GENERAL"));
+            .timeout(java.time.Duration.ofSeconds(4)) // 타임아웃을 4초로 확장
+            .onErrorResume(e -> {
+                log.error("[IntentRouter] LLM 분류 실패 또는 지연 (결과: GENERAL): {}", e.getMessage());
+                return Mono.just(sopRegistry.get("GENERAL"));
+            });
     }
 
-    // 2번: 확장된 취소 의도 파악
-    private boolean isCancelIntent(String text) {
-        String clean = text.replaceAll("\\s+", "");
-        return clean.contains("아니") || clean.contains("취소") || clean.contains("됐어") ||
-            clean.contains("하지마") || clean.contains("관둘래") || clean.contains("안할래") ||
-            clean.contains("정지") || clean.contains("멈춰");
-    }
-
-    // 2번: 확장된 승인 의도 파악
-    private boolean isConfirmIntent(String text) {
-        String clean = text.replaceAll("\\s+", "");
-        return clean.contains("응") || clean.contains("어") || clean.contains("맞아") ||
-            clean.contains("진행해") || clean.contains("상신해") || clean.contains("해줘") ||
-            clean.contains("그래") || clean.contains("좋아") || clean.contains("오케이") ||
-            clean.contains("ok") || clean.contains("확인");
-    }
-
-    // 기존 LLM 분류 로직 분리
     private AgentWorkflowSOP classifyLlm(String userMessage) {
         try {
             IntentClassification result = routerClient.prompt()
@@ -154,35 +182,24 @@ public class IntentRouter {
                 .entity(IntentClassification.class);
             return sopRegistry.getOrDefault(Objects.requireNonNull(result).category(), sopRegistry.get("GENERAL"));
         } catch (Exception e) {
+            log.error("[IntentRouter] LLM 분류 에러: {}", e.getMessage());
             return sopRegistry.get("GENERAL");
         }
     }
 
-    // 1차 고속 라우터: 키워드 기반 분류
-    private AgentWorkflowSOP fastMatch(String text) {
-        String cleanText = text.replaceAll("\\s+", "").toLowerCase();
+    private boolean isCancelIntent(String text) {
+        String clean = text.replaceAll("\\s+", "");
+        return clean.contains("아니") || clean.contains("취소") || clean.contains("됐어") ||
+            clean.contains("하지마") || clean.contains("관둘래") || clean.contains("안할래") ||
+            clean.contains("정지") || clean.contains("멈춰");
+    }
 
-        if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
-            cleanText.contains("야근") || cleanText.contains("초과근무")) {
-
-            // 월 단위 요청인지 파악
-            if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달")) {
-                return sopRegistry.get("OVERTIME_MONTHLY");
-            }
-            // 그 외에는 전부 단일 날짜로 취급
-            return sopRegistry.get("OVERTIME_ONEDAY");
-        }
-
-        if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") ||
-            cleanText.contains("반반차") || cleanText.contains("보상휴가") || cleanText.contains("결근")) {
-            return sopRegistry.get("VACATION");
-        }
-
-        if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || cleanText.contains("매뉴얼")) {
-            return sopRegistry.get("POLICY");
-        }
-
-        return null;
+    private boolean isConfirmIntent(String text) {
+        String clean = text.replaceAll("\\s+", "");
+        return clean.contains("응") || clean.contains("어") || clean.contains("맞아") ||
+            clean.contains("진행해") || clean.contains("상신해") || clean.contains("해줘") ||
+            clean.contains("그래") || clean.contains("좋아") || clean.contains("오케이") ||
+            clean.contains("ok") || clean.contains("확인");
     }
 
     private void initSOPRegistry() {
@@ -194,12 +211,11 @@ public class IntentRouter {
                      아래의 절차(<step>)와 제약사항(<constraint>)을 엄격하게 준수하세요.
                 
                      <step>
-                     1. 사용자가 시간을 명시하지 않았다면 다시 사용자에게 정확한 ot_date를 물어보게 한다.
-                     2. 'get_team_attendance'를 호출하여 해당 날짜의 실제 퇴근 시간을 조회한다.
-                     3. 계산된 시간을 사용자에게 친절하게 안내하고, "이 시간으로 결재 상신을 진행할까요?"라고 묻는다.
-                     4. 사용자가 동의(승인)하면, 'request_overtime_approval'(request_type="oneday")를 호출하여 기안을 완료한다.
+                      1. 시스템 정보의 '현재 날짜 및 시간'을 기준으로 사용자가 요청한 날짜(예: 내일, 모레 등)를 정확한 날짜(YYYY-MM-DD)로 변환하여 잔업 날짜(ot_date)를 파악합니다. 사용자가 날짜를 명시하지 않았다면 다시 사용자에게 정확한 ot_date를 물어보게 합니다.
+                      2. 'get_team_attendance'를 호출하여 해당 날짜의 실제 퇴근 시간을 조회한다.
+                      3. 계산된 시간을 사용자에게 친절하게 안내하고, "이 시간으로 결재 상신을 진행할까요?"라고 묻는다.
+                      4. 사용자가 동의(승인)하면, 'request_overtime_approval'(request_type="oneday")를 호출하여 기안을 완료한다.
                      </step>
-                
                      <constraint>
                      - STEP 3을 수행한 직후에는 반드시 [STOP] 하고 사용자의 대답을 기다려야 합니다.
                      - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 STEP 4를 선제적으로 호출하지 마십시오.
@@ -232,18 +248,18 @@ public class IntentRouter {
             "VACATION", new AgentWorkflowSOP(
                 "VACATION", """
                      당신은 현재 [휴가/연차 신청 워크플로우]를 수행 중입니다.
-                     아래의 절차(<step>)와 제약사항(<constraint>)을 엄격하게 준수하세요.
+                     사용자의 요청을 분석하여 'request_for_leave' 도구 형식에 맞게 정보를 추출하세요.
+                     아래의 절차(<step>)를 엄격하게 준수하세요.
                 
                      <step>
-                     1. 사용자가 원하는 휴가 날짜(시작일과 종료일)와 휴가 유형(연차, 반차 등)을 파악합니다. 누락되었다면 질문하세요.
-                     2. 파악된 정보를 바탕으로 사용자에게 "이 내용으로 휴가를 신청할까요?"라고 묻습니다.
-                     3. 사용자가 동의(승인)하면, 'request_vacation_approval' 도구를 호출하여 기안을 완료합니다.
+                      1. 시스템 정보의 '현재 날짜 및 시간'을 기준으로 사용자가 요청한 날짜(예: 내일, 모레 등)를 정확한 날짜(YYYY-MM-DD)로 변환하여 휴가 날짜(leave_date)를 파악합니다.
+                      2. 휴가 종류(leave_type)를 파악합니다.
+                      3. 만약 '반차'나 '반일보상휴가'라면 반드시 '오전'인지 '오후'인지(half_day_type)를 확인하세요.
+                      4. 만약 '반반차'라면 반드시 '시작 시간'(start_time)을 확인하세요.
+                      5. 정보가 하나라도 누락되었다면 사용자에게 질문하여 보충하세요. (예: "오후반차이신가요, 오전반차이신가요?")
+                      6. 모든 정보가 파악되면 "이 내용으로 휴가를 신청할까요?"라고 최종 확인합니다.
+                      7. 승인 시에만 도구를 호출하되, '오후반차'는 leave_type="반차", half_day_type="오후"로 나누어 전달합니다.
                      </step>
-                
-                     <constraint>
-                     - STEP 2를 수행한 직후에는 반드시 [STOP] 하고 사용자의 대답을 기다려야 합니다.
-                     - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 STEP 3을 선제적으로 호출하지 마십시오.
-                     </constraint>
                 """, false
             )
         );
@@ -257,5 +273,6 @@ public class IntentRouter {
     }
 
     // Spring AI가 구조화된 출력을 위해 사용할 내부 레코드
-    record IntentClassification(String category, double confidence) {}
+    record IntentClassification(String category, double confidence) {
+    }
 }
