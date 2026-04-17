@@ -28,14 +28,15 @@ public class IntentRouter {
                 
                 [미션]
                 사용자의 현재 입력과 직전 대화 맥락을 분석하여 다음 카테고리 중 하나로 분류하세요:
-                1. OVERTIME_ONEDAY: 특정 날짜의 잔업/특근 신청
-                2. OVERTIME_MONTHLY: 특정 달(월)의 잔업/특근 일괄 신청
-                3. VACATION: 휴가, 연차, 반차, 보상휴가 신청
+                1. OVERTIME_ONEDAY: 특정 날짜의 잔업/특근 신청 (주의: 단순 조회나 확인은 해당하지 않음)
+                2. OVERTIME_MONTHLY: 특정 달(월)의 잔업/특근 일괄 신청 (주의: 단순 조회나 확인은 해당하지 않음)
+                3. VACATION: 휴가, 연차, 반차, 보상휴가 신청 (주의: 단순 조회나 확인은 해당하지 않음)
                 4. POLICY: 사내 규정, 지침, 매뉴얼 문의 (RAG 필요)
-                5. GENERAL: 인사, 감사, 일반 대화, 또는 위 카테고리에 해당하지 않는 경우
+                5. GENERAL: 인사, 감사, 일반 대화, 근태 정보 조회/확인, 또는 위 카테고리에 해당하지 않는 경우
                 
                 [중요 제약사항]
                 - 사용자가 '응', '진행해', '상신해줘', '그래', '확인' 등 긍정/동의를 하거나 결재 진행을 요청했다면, 직전 대화에서 어떤 신청/결재 절차가 논의 중이었는지 파악하여 해당 카테고리를 선택하세요.
+                - 단순히 본인의 초과 근무 시간이나 출퇴근 기록을 "보여줘", "알려줘", "확인해줘"라고 묻는 경우는 'GENERAL'로 분류해야 합니다.
                 - 예를 들어, 직전에 '잔업 시간을 계산'했거나 '휴가 일자를 확인'한 뒤 '상신(신청)할까요?'라고 물어본 상태라면, 사용자의 동의 시점에 각각 'OVERTIME_ONEDAY' 또는 'VACATION'으로 정확히 분류해야 합니다.
                 - 오직 카테고리 이름만 출력하세요.
                 """
@@ -120,11 +121,22 @@ public class IntentRouter {
         // 긍정형 대답은 키워드 매칭에서 제외하여 WAITING 로직을 타게 함
         if (isConfirmIntent(text)) return null;
 
+        // "조회", "보여줘", "알려줘", "확인" 등 조회성 키워드가 포함된 경우 fastMatch에서 제외 (LLM 분류 유도)
+        if (cleanText.contains("조회") || cleanText.contains("보여줘") || cleanText.contains("알려줘") ||
+            cleanText.contains("얼마나") || cleanText.contains("확인해") || cleanText.contains("궁금")) {
+            return null;
+        }
+
         if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
             cleanText.contains("야근") || cleanText.contains("초과근무") || cleanText.contains("연장근무")) {
 
             if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달")) {
-                return sopRegistry.get("OVERTIME_MONTHLY");
+                // 월 단위는 '신청'이나 '상신' 키워드가 명확할 때만 fastMatch
+                if (cleanText.contains("신청") || cleanText.contains("상신")) {
+                    return sopRegistry.get("OVERTIME_MONTHLY");
+                }
+                // 그 외(조회 등)는 LLM이 판단하도록 함
+                return null;
             }
             return sopRegistry.get("OVERTIME_ONEDAY");
         }
