@@ -1,45 +1,56 @@
 package com.brycenkorea.template.util;
 
+import com.brycenkorea.template.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class ChatStateManager {
 
-    private final ReactiveStringRedisTemplate redisTemplate;
-    private static final String KEY_PREFIX = "chat:state:";
+    private final ChatRoomRepository chatRoomRepository;
 
     // 현재 상태 조회
-    public Mono<String> getState(String roomId) {
-        return redisTemplate.opsForValue().get(KEY_PREFIX + roomId)
-            .timeout(Duration.ofSeconds(1))
+    public Mono<StateInfo> getState(String roomId) {
+        return chatRoomRepository.findById(UUID.fromString(roomId))
+            .map(chatRoom -> {
+                if (chatRoom.getState() == null) {
+                    return new StateInfo("EMPTY", null);
+                }
+                return new StateInfo(chatRoom.getState(), chatRoom.getStateUpdatedAt());
+            })
+            .defaultIfEmpty(new StateInfo("EMPTY", null))
+            .timeout(Duration.ofSeconds(2))
             .onErrorResume(e -> {
-                log.error("[Redis 에러] 상태 조회 실패: {}", e.getMessage());
-                // 에러 발생 시 일반 empty가 아닌 ERROR를 반환하여 Router에서 인식하게 함
-                return Mono.just("REDIS_ERROR");
+                log.error("[DB 에러] 상태 조회 실패: {}", e.getMessage());
+                return Mono.just(new StateInfo("DB_ERROR", null));
             });
     }
 
+    public record StateInfo(String state, OffsetDateTime updatedAt) {}
+
     // 상태 저장
     public Mono<Boolean> setState(String roomId, String state) {
-        log.info("[Redis] {} 방 상태 저장: {}", roomId, state);
-        return redisTemplate.opsForValue()
-            .set(KEY_PREFIX + roomId, state, Duration.ofMinutes(15))
-            .timeout(Duration.ofSeconds(1)) // 여기도 1초 타임아웃
-            .onErrorReturn(false); // 에러 나면 그냥 false 반환하고 앱은 정상 구동
+        log.info("[DB] {} 방 상태 저장: {}", roomId, state);
+        return chatRoomRepository.updateState(UUID.fromString(roomId), state)
+            .map(count -> count > 0)
+            .timeout(Duration.ofSeconds(2))
+            .onErrorReturn(false);
     }
 
-    // 상태 초기화 (상신 완료 또는 취소 시)
+    // 상태 초기화
     public Mono<Boolean> clearState(String roomId) {
-        log.info("[Redis] {} 방 상태 초기화", roomId);
-        return redisTemplate.delete(KEY_PREFIX + roomId)
-            .map(count -> count > 0);
+        log.info("[DB] {} 방 상태 초기화", roomId);
+        return chatRoomRepository.clearState(UUID.fromString(roomId))
+            .map(count -> count > 0)
+            .timeout(Duration.ofSeconds(2))
+            .onErrorReturn(false);
     }
 }

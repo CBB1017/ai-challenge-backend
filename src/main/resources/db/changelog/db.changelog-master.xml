@@ -15,5 +15,6 @@
     <include file="db/changelog/V8__create_user_table.xml"/>
     <include file="db/changelog/V9__create_actions_table.xml"/>
     <include file="db/changelog/V10__add_room_id_to_actions.xml"/>
+    <include file="db/changelog/V11__add_state_to_chat_room.xml"/>
 
 </databaseChangeLog>

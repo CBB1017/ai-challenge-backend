@@ -54,16 +54,19 @@ public class IntentRouter {
     public Mono<AgentWorkflowSOP> determineSop(String userMessage, String roomId) {
         long startTime = System.currentTimeMillis();
         return stateManager.getState(roomId)
-            .flatMap(state -> {
-                log.info("[IntentRouter] 소요시간(Redis조회): {}ms, 상태: {}", (System.currentTimeMillis() - startTime), state);
+            .flatMap(stateInfo -> {
+                String state = stateInfo.state();
+                log.info("[IntentRouter] 소요시간(조회): {}ms, 상태: {}", (System.currentTimeMillis() - startTime), state);
 
-                if ("REDIS_ERROR".equals(state)) {
+                if ("DB_ERROR".equals(state)) {
                     AgentWorkflowSOP general = sopRegistry.get("GENERAL");
                     String warning = "\n\n[주의] 현재 시스템 문제로 대화 맥락 유지(상태 관리)가 원활하지 않을 수 있습니다. 중요한 상신 전에는 다시 한번 확인해 주세요.";
                     return Mono.just(new AgentWorkflowSOP(general.intentId(), general.rules() + warning, general.requiresRag()));
                 }
 
-                // 1. 상태가 있더라도 사용자가 아예 다른 명확한 요청을 했는지 확인 (Topic Switching)
+                if ("EMPTY".equals(state)) {
+                    return Mono.empty();
+                }
                 AgentWorkflowSOP fastIntent = fastMatch(userMessage);
                 if (fastIntent != null) {
                     String expectedState = fastIntent.intentId() + "_WAITING";
@@ -86,12 +89,23 @@ public class IntentRouter {
                 if (state.contains("_WAITING")) {
                     String baseIntentId = state.split(":")[0].replace("_WAITING", "");
 
+                    AgentWorkflowSOP baseSop = sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"));
+
+                    // 신선도 체크: 30분 이상 지났다면 프롬프트에 안내 주입
+                    if (stateInfo.updatedAt() != null) {
+                        java.time.Duration duration = java.time.Duration.between(stateInfo.updatedAt(), java.time.OffsetDateTime.now());
+                        if (duration.toMinutes() >= 30) {
+                            log.info("[IntentRouter] 30분 경과 맥락 감지 - 안내 문구 주입");
+                            baseSop = injectStaleNotice(baseSop, duration.toMinutes());
+                        }
+                    }
+
                     if (isConfirmIntent(userMessage)) {
                         log.info("사용자 승인 확인 - {} 결재 상신 플로우로 넘기고 상태 초기화", baseIntentId);
                         return stateManager.clearState(roomId)
-                            .thenReturn(injectConfirmNotice(sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"))));
+                            .thenReturn(injectConfirmNotice(baseSop));
                     }
-                    return Mono.just(sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL")));
+                    return Mono.just(baseSop);
                 }
 
                 return Mono.just(sopRegistry.get("GENERAL"));
@@ -186,6 +200,16 @@ public class IntentRouter {
                 .thenReturn(sop);
         }
         return Mono.just(sop);
+    }
+
+    // 오래된 맥락(Stale Context)에 대한 가이드 주입
+    private AgentWorkflowSOP injectStaleNotice(AgentWorkflowSOP sop, long minutes) {
+        String staleGuide = String.format("""
+            \n
+            [주의] 사용자와의 마지막 대화로부터 약 %d분 정도가 지났습니다. \
+            사용자가 이전 작업을 잊었을 수 있으므로, 답변 시작 시 "이전의 %s 신청을 계속 진행할까요?"와 같이 \
+            현재 상황을 가볍게 리마인드하며 대화를 시작해 주세요.""", minutes, sop.intentId());
+        return new AgentWorkflowSOP(sop.intentId(), sop.rules() + staleGuide, sop.requiresRag());
     }
 
     // 주제 전환 시 AI에게 사용자 알림을 유도하는 프롬프트 주입

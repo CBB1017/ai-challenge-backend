@@ -18,4 +18,14 @@ public interface ChatRoomRepository extends ReactiveCrudRepository<ChatRoom, UUI
     @Modifying
     @Query("UPDATE chat_room SET title = :title, updated_at = CURRENT_TIMESTAMP WHERE room_id = :roomId")
     Mono<Integer> updateTitle(UUID roomId, String title);
+
+    // 채팅방 상태 업데이트
+    @Modifying
+    @Query("UPDATE chat_room SET state = :state, state_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE room_id = :roomId")
+    Mono<Integer> updateState(UUID roomId, String state);
+
+    // 채팅방 상태 초기화
+    @Modifying
+    @Query("UPDATE chat_room SET state = NULL, state_updated_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE room_id = :roomId")
+    Mono<Integer> clearState(UUID roomId);
 }
