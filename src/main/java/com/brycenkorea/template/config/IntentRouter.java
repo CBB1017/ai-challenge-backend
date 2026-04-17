@@ -31,10 +31,11 @@ public class IntentRouter {
                 1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date (Note: Simple inquiry or confirmation does not apply)
                 2. OVERTIME_MONTHLY: Batch application for overtime/holiday work for a specific month (Note: Simple inquiry or confirmation does not apply)
                 3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave (Note: Simple inquiry or confirmation does not apply)
-                4. POLICY: Inquiry about internal regulations, guidelines, or manuals (Requires RAG)
+                4. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (e.g., "vacation rule", "leave policy", "규정 확인") (Requires RAG)
                 5. GENERAL: HR, audit, general conversation, checking/confirming attendance information, or cases that do not fall into the above categories.
                 
                 [Important Constraints]
+                - If the user is asking about "rules", "policies", "standards", or "how to" regarding HR or company procedures (e.g., "leave rule", "vacation policy"), classify as 'POLICY'.
                 - If the user gives a positive/agreeing response like 'yes', 'proceed', 'submit it', 'okay', 'confirm', or requests to proceed with approval, identify which application/approval process was being discussed in the previous conversation and select that category.
                 - If the user simply asks to "show", "tell", or "check" their own overtime hours or commute records, it should be classified as 'GENERAL'.
                 - For example, if 'overtime hours were calculated' or 'vacation dates were checked' just before and the AI asked 'Shall I submit it?', you must accurately classify it as 'OVERTIME_ONEDAY' or 'VACATION' at the moment of user's consent.
@@ -116,53 +117,61 @@ public class IntentRouter {
 
     // 1차 고속 라우터: 키워드 기반 분류 (지연 방지를 위해 최대한 여기서 걸러야 함)
     private AgentWorkflowSOP fastMatch(String text) {
-        String cleanText = text.replaceAll("\\s+", "").toLowerCase();
+        String cleanText = text.replaceAll("[\\s&,]+", "").toLowerCase();
 
         // 긍정형 대답은 키워드 매칭에서 제외하여 WAITING 로직을 타게 함
         if (isConfirmIntent(text)) return null;
 
-        // "조회", "보여줘", "알려줘", "확인" 등 조회성 키워드가 포함된 경우 fastMatch에서 제외 (LLM 분류 유도)
+        // 1. [POLICY] 사내 규정/지침 관련 (가장 포괄적이며 우선순위 높음)
+        if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || 
+            cleanText.contains("매뉴얼") || cleanText.contains("가이드") || cleanText.contains("조항") ||
+            cleanText.contains("policy") || cleanText.contains("regulation") || cleanText.contains("manual") || 
+            cleanText.contains("guide") || cleanText.contains("rule") || cleanText.contains("standard") || 
+            cleanText.contains("howto") || cleanText.contains("instruction") || cleanText.contains("procedure") ||
+            cleanText.contains("规定") || cleanText.contains("規定") || cleanText.contains("マニュアル") || 
+            cleanText.contains("ルール") || cleanText.contains("quyđịnh") || cleanText.contains("hướngdẫn")) {
+            return sopRegistry.get("POLICY");
+        }
+
+        // "조회", "보여줘", "알려줘", "확인" 등 단순 조회성 키워드가 포함된 경우 (POLICY가 아닐 때만 제외)
         if (cleanText.contains("조회") || cleanText.contains("보여줘") || cleanText.contains("알려줘") ||
             cleanText.contains("얼마나") || cleanText.contains("확인해") || cleanText.contains("궁금") ||
             cleanText.contains("show") || cleanText.contains("tell") || cleanText.contains("check") ||
-            cleanText.contains("howmany") || cleanText.contains("verify") ||
+            cleanText.contains("howmany") || cleanText.contains("verify") || cleanText.contains("view") ||
             cleanText.contains("見せて") || cleanText.contains("教えて") || cleanText.contains("確認") ||
             cleanText.contains("xem") || cleanText.contains("cho") || cleanText.contains("biết")) {
             return null;
         }
 
+        // 2. [OVERTIME] 잔업/특근 신청 관련
         if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
             cleanText.contains("야근") || cleanText.contains("초과근무") || cleanText.contains("연장근무") ||
-            cleanText.contains("overtime") || cleanText.contains("残業") || cleanText.contains("làmthêm")) {
+            cleanText.contains("overtime") || cleanText.contains("extrawork") || cleanText.contains("nightshift") || 
+            cleanText.contains("workinglate") || cleanText.contains("殘業") || cleanText.contains("残業") || 
+            cleanText.contains("làmthêm") || cleanText.contains("tăngca")) {
 
             if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달") ||
                 cleanText.contains("month") || cleanText.contains("今月") || cleanText.contains("tháng")) {
-                // 월 단위는 '신청'이나 '상신' 키워드가 명확할 때만 fastMatch
                 if (cleanText.contains("신청") || cleanText.contains("상신") ||
                     cleanText.contains("apply") || cleanText.contains("submit") ||
                     cleanText.contains("申請") || cleanText.contains("đăngký")) {
                     return sopRegistry.get("OVERTIME_MONTHLY");
                 }
-                // 그 외(조회 등)는 LLM이 판단하도록 함
                 return null;
             }
             return sopRegistry.get("OVERTIME_ONEDAY");
         }
 
+        // 3. [VACATION] 휴가/연차 신청 관련
         if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") ||
             cleanText.contains("반반차") || cleanText.contains("보상휴가") || cleanText.contains("결근") ||
-            cleanText.contains("병가") || cleanText.contains("조퇴") ||
-            cleanText.contains("vacation") || cleanText.contains("leave") ||
-            cleanText.contains("休暇") || cleanText.contains("有休") ||
-            cleanText.contains("nghỉ")) {
+            cleanText.contains("병가") || cleanText.contains("조퇴") || cleanText.contains("경조사") ||
+            cleanText.contains("vacation") || cleanText.contains("leave") || cleanText.contains("holiday") || 
+            cleanText.contains("dayoff") || cleanText.contains("off") || cleanText.contains("break") || 
+            cleanText.contains("sick") || cleanText.contains("absence") ||
+            cleanText.contains("休暇") || cleanText.contains("有休") || cleanText.contains("休み") ||
+            cleanText.contains("nghỉ") || cleanText.contains("vắngmặt")) {
             return sopRegistry.get("VACATION");
-        }
-
-        if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || cleanText.contains("매뉴얼") || cleanText.contains("가이드") ||
-            cleanText.contains("policy") || cleanText.contains("regulation") || cleanText.contains("manual") || cleanText.contains("guide") ||
-            cleanText.contains("規定") || cleanText.contains("マニュアル") ||
-            cleanText.contains("quyđịnh") || cleanText.contains("hướngdẫn")) {
-            return sopRegistry.get("POLICY");
         }
 
         return null;

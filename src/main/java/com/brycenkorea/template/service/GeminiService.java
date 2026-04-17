@@ -43,19 +43,35 @@ public class GeminiService {
     private final ApplicationEventPublisher eventPublisher;
     private final ActionService actionService;
 
-    public Flux<ChatResponse> askStream(String prompt, String roomId, String language) {
+    public Mono<AgentWorkflowSOP> determineIntent(String prompt, String roomId) {
+        return intentRouter.determineSop(prompt, roomId);
+    }
+
+    public Flux<PromptResponse> askStreamWithSop(String prompt, String roomId, String language, AgentWorkflowSOP sop) {
         return ReactiveSecurityContextHolder.getContext()
             .mapNotNull(SecurityContext::getAuthentication)
             .cast(GroupwareAuthenticationToken.class)
-            .flatMapMany(auth ->
-                // 라우팅(Redis 확인 포함)을 먼저 비동기로 수행
-                intentRouter.determineSop(prompt, roomId)
-                    .flatMapMany(sop -> {
-                        ChatClient.ChatClientRequestSpec spec = buildRequestSpec(auth, sop, prompt, roomId, language);
-                        return executeChatFlow(spec, prompt, roomId, sop, auth.getPrincipal(), language);
-                    })
-            );
+            .flatMapMany(auth -> {
+                ChatClient.ChatClientRequestSpec spec = buildRequestSpec(auth, sop, prompt, roomId, language);
+                return executeChatFlow(spec, prompt, roomId, sop, auth.getPrincipal(), language);
+            })
+            .filter(this::isNotToolCall)
+            .map(this::convertToPromptResponse)
+            .filter(resp -> !resp.response().isEmpty())
+            .onErrorResume(e -> {
+                log.error("[Gemini 에러 감지] 원인: {}", e.getMessage());
+                String userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "general");
+
+                if (e.getMessage().contains("429") || e.getMessage().contains("quota")) {
+                    userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "quota");
+                } else if (e.getMessage().contains("safety")) {
+                    userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "safety");
+                }
+
+                return Flux.just(new PromptResponse(userFriendlyMessage));
+            });
     }
+
     /**
      * 방 ID가 있으면 존재 확인, 없으면 새로 생성하여 반환
      */
@@ -179,27 +195,6 @@ public class GeminiService {
                 })
                 .then(Mono.empty());
         });
-    }
-
-    public Flux<PromptResponse> askStreamProcessed(String prompt, String roomId, String language) {
-        return askStream(prompt, roomId, language)
-            .filter(this::isNotToolCall)
-            .map(this::convertToPromptResponse)
-            .filter(resp -> !resp.response().isEmpty())
-            .onErrorResume(e -> {
-                log.error("[Gemini 에러 감지] 원인: {}", e.getMessage());
-                String userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "general");
-                
-                // 429 Quota Exceeded 에러인 경우 구체적인 안내
-                if (e.getMessage().contains("429") || e.getMessage().contains("quota")) {
-                    userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "quota");
-                } else if (e.getMessage().contains("safety")) {
-                    userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "safety");
-                }
-
-                return Flux.just(new PromptResponse(userFriendlyMessage));
-            })
-            .doOnNext(msg -> log.info("최종 발송 데이터: {}", msg.response()));
     }
 
     private boolean isNotToolCall(ChatResponse chatResponse) {
