@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - backend
+      - ai-challenge
   redis:
     image: redis:7-alpine
     container_name: groupware-redis
@@ -23,7 +23,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - backend
+      - ai-challenge
   chrome:
     image: browserless/chrome:latest
     container_name: groupware-chrome
@@ -49,7 +49,23 @@ services:
         max-size: "20m"   # 로그 파일 1개당 최대 20MB
         max-file: "5"     # 최대 5개 파일까지만 보관
     networks:
-      - backend
+      - ai-challenge
+  nginx:
+    image: nginx:stable-alpine
+    container_name: groupware-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    # 만약 프론트엔드가 호스트 머신(로컬)에서 실행 중이라면 아래 설정이 필요합니다.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-challenge
+    depends_on:
+      - postgres # 필요에 따라 의존성 추가
         #  playwright-mcp:
         #    image: mcp/playwright:latest
         #    container_name: playwright-mcp
@@ -60,7 +76,7 @@ services:
         #      - "3000:3000"
       #    restart: unless-stopped
       #    networks:
-      #      - backend
+      #      - ai-challenge
       #    # ?대?留?李⑤떒???먰븯硫??꾨옒泥섎읆 ?ㅽ듃?뚰겕 ?뺤콉 異붽? 怨좊젮
     # cap_drop:
     #   - ALL
@@ -80,11 +96,11 @@ services:
 #       SPRING_DATASOURCE_PASSWORD: apppass
 #       MCP_BASE_URL: http://playwright-mcp:3001
 #     networks:
-#       - backend
+#       - ai-challenge
 #
 volumes:
   postgres-data:
   redis-data:
 networks:
-  backend:
+  ai-challenge:
     driver: bridge
