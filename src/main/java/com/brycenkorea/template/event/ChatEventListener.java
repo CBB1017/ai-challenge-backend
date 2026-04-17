@@ -25,10 +25,24 @@ public class ChatEventListener {
         // 1. Mono.fromCallable을 사용하여 블로킹 작업(AI 호출)을 감쌉니다.
         Mono.fromCallable(() -> {
                 log.info("AI 요약 요청 시작...");
-                String summaryPrompt = String.format(
-                    "다음 대화를 바탕으로 채팅방의 제목을 15자 이내로 요약해줘.\n유저: %s\nAI: %s",
-                    event.userPrompt(), event.aiResponse()
-                );
+                String summaryPrompt = switch (event.language() != null ? event.language().toLowerCase() : "ko") {
+                    case "en" -> String.format(
+                        "Please summarize the following conversation as a chat room title within 15 characters.\nUser: %s\nAI: %s",
+                        event.userPrompt(), event.aiResponse()
+                    );
+                    case "ja" -> String.format(
+                        "次の会話を元に、チャットルームのタイトルを15文字以内で要約してください。\nユーザー: %s\nAI: %s",
+                        event.userPrompt(), event.aiResponse()
+                    );
+                    case "vi" -> String.format(
+                        "Dựa trên cuộc trò chuyện sau, hãy tóm tắt tiêu đề phòng trò chuyện trong vòng 15 ký tự.\nNgười dùng: %s\nAI: %s",
+                        event.userPrompt(), event.aiResponse()
+                    );
+                    default -> String.format(
+                        "다음 대화를 바탕으로 채팅방의 제목을 15자 이내로 요약해줘.\n유저: %s\nAI: %s",
+                        event.userPrompt(), event.aiResponse()
+                    );
+                };
                 return baseChatClient.prompt().user(summaryPrompt).call().content();
             })
             // 2. 블로킹 AI 호출을 위한 전용 스레드 풀 할당
@@ -41,8 +55,11 @@ public class ChatEventListener {
                 }
                 return Mono.empty();
             })
-            .doOnError(e -> log.error("제목 생성/업데이트 중 에러", e))
             // 3. 비동기 실행을 위한 명시적 구독
-            .subscribe();
+            .subscribe(
+                null,
+                e -> log.error("제목 생성/업데이트 중 에러", e),
+                () -> log.debug("첫 대화 제목 요약 프로세스 완료")
+            );
     }
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="V10-1-add-room-id-to-actions" author="moon">
+        <comment>actions 테이블에 room_id 컬럼 추가</comment>
+        <addColumn tableName="actions">
+            <column name="room_id" type="UUID">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <createIndex tableName="actions" indexName="idx_actions_room_id">
+            <column name="room_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>
