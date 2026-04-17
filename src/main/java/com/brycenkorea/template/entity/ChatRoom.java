@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Table("chat_room")
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @ToString
 public class ChatRoom {
 

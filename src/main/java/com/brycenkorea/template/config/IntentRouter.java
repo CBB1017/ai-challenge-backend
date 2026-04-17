@@ -24,21 +24,21 @@ public class IntentRouter {
         // 라우터 전용으로 가볍고 빠른 모델을 세팅합니다.
         this.routerClient = builder.defaultSystem(
             """
-                당신은 사내 그룹웨어 사용자의 요청 의도를 분류하는 고성능 라우터입니다.
+                You are a high-performance router that classifies the intent of internal groupware users.
                 
-                [미션]
-                사용자의 현재 입력과 직전 대화 맥락을 분석하여 다음 카테고리 중 하나로 분류하세요:
-                1. OVERTIME_ONEDAY: 특정 날짜의 잔업/특근 신청 (주의: 단순 조회나 확인은 해당하지 않음)
-                2. OVERTIME_MONTHLY: 특정 달(월)의 잔업/특근 일괄 신청 (주의: 단순 조회나 확인은 해당하지 않음)
-                3. VACATION: 휴가, 연차, 반차, 보상휴가 신청 (주의: 단순 조회나 확인은 해당하지 않음)
-                4. POLICY: 사내 규정, 지침, 매뉴얼 문의 (RAG 필요)
-                5. GENERAL: 인사, 감사, 일반 대화, 근태 정보 조회/확인, 또는 위 카테고리에 해당하지 않는 경우
+                [Mission]
+                Analyze the user's current input and previous conversation context to classify them into one of the following categories:
+                1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date (Note: Simple inquiry or confirmation does not apply)
+                2. OVERTIME_MONTHLY: Batch application for overtime/holiday work for a specific month (Note: Simple inquiry or confirmation does not apply)
+                3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave (Note: Simple inquiry or confirmation does not apply)
+                4. POLICY: Inquiry about internal regulations, guidelines, or manuals (Requires RAG)
+                5. GENERAL: HR, audit, general conversation, checking/confirming attendance information, or cases that do not fall into the above categories.
                 
-                [중요 제약사항]
-                - 사용자가 '응', '진행해', '상신해줘', '그래', '확인' 등 긍정/동의를 하거나 결재 진행을 요청했다면, 직전 대화에서 어떤 신청/결재 절차가 논의 중이었는지 파악하여 해당 카테고리를 선택하세요.
-                - 단순히 본인의 초과 근무 시간이나 출퇴근 기록을 "보여줘", "알려줘", "확인해줘"라고 묻는 경우는 'GENERAL'로 분류해야 합니다.
-                - 예를 들어, 직전에 '잔업 시간을 계산'했거나 '휴가 일자를 확인'한 뒤 '상신(신청)할까요?'라고 물어본 상태라면, 사용자의 동의 시점에 각각 'OVERTIME_ONEDAY' 또는 'VACATION'으로 정확히 분류해야 합니다.
-                - 오직 카테고리 이름만 출력하세요.
+                [Important Constraints]
+                - If the user gives a positive/agreeing response like 'yes', 'proceed', 'submit it', 'okay', 'confirm', or requests to proceed with approval, identify which application/approval process was being discussed in the previous conversation and select that category.
+                - If the user simply asks to "show", "tell", or "check" their own overtime hours or commute records, it should be classified as 'GENERAL'.
+                - For example, if 'overtime hours were calculated' or 'vacation dates were checked' just before and the AI asked 'Shall I submit it?', you must accurately classify it as 'OVERTIME_ONEDAY' or 'VACATION' at the moment of user's consent.
+                - Output ONLY the category name.
                 """
         ).build();
         this.stateManager = stateManager;
@@ -123,16 +123,24 @@ public class IntentRouter {
 
         // "조회", "보여줘", "알려줘", "확인" 등 조회성 키워드가 포함된 경우 fastMatch에서 제외 (LLM 분류 유도)
         if (cleanText.contains("조회") || cleanText.contains("보여줘") || cleanText.contains("알려줘") ||
-            cleanText.contains("얼마나") || cleanText.contains("확인해") || cleanText.contains("궁금")) {
+            cleanText.contains("얼마나") || cleanText.contains("확인해") || cleanText.contains("궁금") ||
+            cleanText.contains("show") || cleanText.contains("tell") || cleanText.contains("check") ||
+            cleanText.contains("howmany") || cleanText.contains("verify") ||
+            cleanText.contains("見せて") || cleanText.contains("教えて") || cleanText.contains("確認") ||
+            cleanText.contains("xem") || cleanText.contains("cho") || cleanText.contains("biết")) {
             return null;
         }
 
         if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
-            cleanText.contains("야근") || cleanText.contains("초과근무") || cleanText.contains("연장근무")) {
+            cleanText.contains("야근") || cleanText.contains("초과근무") || cleanText.contains("연장근무") ||
+            cleanText.contains("overtime") || cleanText.contains("残業") || cleanText.contains("làmthêm")) {
 
-            if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달")) {
+            if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달") ||
+                cleanText.contains("month") || cleanText.contains("今月") || cleanText.contains("tháng")) {
                 // 월 단위는 '신청'이나 '상신' 키워드가 명확할 때만 fastMatch
-                if (cleanText.contains("신청") || cleanText.contains("상신")) {
+                if (cleanText.contains("신청") || cleanText.contains("상신") ||
+                    cleanText.contains("apply") || cleanText.contains("submit") ||
+                    cleanText.contains("申請") || cleanText.contains("đăngký")) {
                     return sopRegistry.get("OVERTIME_MONTHLY");
                 }
                 // 그 외(조회 등)는 LLM이 판단하도록 함
@@ -143,11 +151,17 @@ public class IntentRouter {
 
         if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") ||
             cleanText.contains("반반차") || cleanText.contains("보상휴가") || cleanText.contains("결근") ||
-            cleanText.contains("병가") || cleanText.contains("조퇴")) {
+            cleanText.contains("병가") || cleanText.contains("조퇴") ||
+            cleanText.contains("vacation") || cleanText.contains("leave") ||
+            cleanText.contains("休暇") || cleanText.contains("有休") ||
+            cleanText.contains("nghỉ")) {
             return sopRegistry.get("VACATION");
         }
 
-        if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || cleanText.contains("매뉴얼") || cleanText.contains("가이드")) {
+        if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || cleanText.contains("매뉴얼") || cleanText.contains("가이드") ||
+            cleanText.contains("policy") || cleanText.contains("regulation") || cleanText.contains("manual") || cleanText.contains("guide") ||
+            cleanText.contains("規定") || cleanText.contains("マニュアル") ||
+            cleanText.contains("quyđịnh") || cleanText.contains("hướngdẫn")) {
             return sopRegistry.get("POLICY");
         }
 
@@ -200,18 +214,24 @@ public class IntentRouter {
     }
 
     private boolean isCancelIntent(String text) {
-        String clean = text.replaceAll("\\s+", "");
+        String clean = text.replaceAll("\\s+", "").toLowerCase();
         return clean.contains("아니") || clean.contains("취소") || clean.contains("됐어") ||
             clean.contains("하지마") || clean.contains("관둘래") || clean.contains("안할래") ||
-            clean.contains("정지") || clean.contains("멈춰");
+            clean.contains("정지") || clean.contains("멈춰") ||
+            clean.contains("no") || clean.contains("cancel") || clean.contains("stop") ||
+            clean.contains("いいえ") || clean.contains("キャンセル") || clean.contains("やめて") ||
+            clean.contains("không") || clean.contains("hủy");
     }
 
     private boolean isConfirmIntent(String text) {
-        String clean = text.replaceAll("\\s+", "");
+        String clean = text.replaceAll("\\s+", "").toLowerCase();
         return clean.contains("응") || clean.contains("어") || clean.contains("맞아") ||
             clean.contains("진행해") || clean.contains("상신해") || clean.contains("해줘") ||
             clean.contains("그래") || clean.contains("좋아") || clean.contains("오케이") ||
-            clean.contains("ok") || clean.contains("확인");
+            clean.contains("ok") || clean.contains("확인") ||
+            clean.contains("yes") || clean.contains("proceed") || clean.contains("submit") ||
+            clean.contains("はい") || clean.contains("進めて") || clean.contains("了解") ||
+            clean.contains("có") || clean.contains("đồng ý");
     }
 
     private void initSOPRegistry() {

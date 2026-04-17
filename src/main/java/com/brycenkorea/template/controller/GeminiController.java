@@ -34,12 +34,12 @@ public class GeminiController {
         log.info("[{}] 요청 시작", promptRequest.roomId());
         String userId = Objects.requireNonNull(authentication.getPrincipal()).toString();
 
-        return geminiService.getOrCreateRoom(promptRequest.roomId(), userId)
+        return geminiService.getOrCreateRoom(promptRequest.roomId(), userId, promptRequest.language())
             .doOnNext(roomId ->
                 response.getHeaders().add("X-Room-Id", roomId.toString())
             )
             .flatMapMany(roomId ->
-                geminiService.askStreamProcessed(promptRequest.prompt(), roomId.toString())
+                geminiService.askStreamProcessed(promptRequest.prompt(), roomId.toString(), promptRequest.language())
             )
             .doOnSubscribe(s -> log.info("Gemini 스트림 구독 시작"))
             .doOnTerminate(() -> log.info("스트림 정상 종료"))

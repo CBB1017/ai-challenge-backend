@@ -1,3 +1,3 @@
 package com.brycenkorea.template.dto.response;
 
-public record PromptRequest(String prompt, String roomId) {}
+public record PromptRequest(String prompt, String roomId, String language) {}
