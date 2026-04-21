@@ -31,8 +31,9 @@ public class IntentRouter {
                 1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date (Note: Simple inquiry or confirmation does not apply)
                 2. OVERTIME_MONTHLY: Batch application for overtime/holiday work for a specific month (Note: Simple inquiry or confirmation does not apply)
                 3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave (Note: Simple inquiry or confirmation does not apply)
-                4. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (e.g., "vacation rule", "leave policy", "규정 확인") (Requires RAG)
-                5. GENERAL: HR, audit, general conversation, checking/confirming attendance information, or cases that do not fall into the above categories.
+                4. EMAIL_SUMMARY: Inquiry or summary of received emails (e.g., "Summarize recent emails", "Show my email list", "Check email content", "이메일 요약해줘").
+                5. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (e.g., "vacation rule", "leave policy", "규정 확인") (Requires RAG)
+                6. GENERAL: HR, audit, general conversation, checking/confirming attendance information, or cases that do not fall into the above categories.
                 
                 [Important Constraints]
                 - If the user is asking about "rules", "policies", "standards", or "how to" regarding HR or company procedures (e.g., "leave rule", "vacation policy"), classify as 'POLICY'.
@@ -136,7 +137,13 @@ public class IntentRouter {
         // 긍정형 대답은 키워드 매칭에서 제외하여 WAITING 로직을 타게 함
         if (isConfirmIntent(text)) return null;
 
-        // 1. [POLICY] 사내 규정/지침 관련 (가장 포괄적이며 우선순위 높음)
+        // 1. [EMAIL_SUMMARY] 이메일 요약/조회 관련
+        if (cleanText.contains("이메일") || cleanText.contains("메일") || 
+            cleanText.contains("email") || cleanText.contains("mail")) {
+            return sopRegistry.get("EMAIL_SUMMARY");
+        }
+
+        // 2. [POLICY] 사내 규정/지침 관련 (가장 포괄적이며 우선순위 높음)
         if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || 
             cleanText.contains("매뉴얼") || cleanText.contains("가이드") || cleanText.contains("조항") ||
             cleanText.contains("policy") || cleanText.contains("regulation") || cleanText.contains("manual") || 
@@ -325,6 +332,53 @@ public class IntentRouter {
                       6. 모든 정보가 파악되면 "이 내용으로 휴가를 신청할까요?"라고 최종 확인합니다.
                       7. 승인 시에만 도구를 호출하되, '오후반차'는 leave_type="반차", half_day_type="오후"로 나누어 전달합니다.
                      </step>
+                """, false
+            )
+        );
+
+        sopRegistry.put(
+            "EMAIL_SUMMARY", new AgentWorkflowSOP(
+                "EMAIL_SUMMARY", """
+                     당신은 현재 [이메일 요약 및 조회 워크플로우]를 수행 중입니다.
+                     아래의 지침(<instruction>)과 포맷(<format>)을 준수하여 사용자에게 답변하세요.
+                
+                     <instruction>
+                      사용자의 요청 의도에 따라 다음 3가지 중 적절한 MCP 도구를 호출합니다.
+                      모든 응답에는 '보낸 사람', '제목', '시간' 정보가 기본적으로 포함되어야 합니다.
+                
+                      1. 단일 메일 요약 (`get_single_email_detail` 호출):
+                         - 특정 순번(index)의 메일 하나에 대해 제목, 요약 내용, 첨부파일을 조회합니다.
+                         - 제목과 내용을 요약하여 리턴합니다.
+                         - 첨부파일이 있다면 URL 리스트를 포함합니다. (형식: [파일명](URL))
+                      2. 여러 메일 요약 (`get_multiple_emails_with_summary` 호출):
+                         - 최근 N개(count)의 메일 리스트에 대해 각각의 제목, 요약 내용, 첨부파일을 조회합니다.
+                         - 각 메일의 제목과 내용을 요약하여 리턴합니다.
+                         - 본문 내용이 포함될 경우, 내용이 길면 전체 최대 2000자까지만 축약하여 리턴합니다.
+                         - 각 메일별 첨부파일 URL 리스트를 포함합니다. (형식: [파일명](URL))
+                      3. 메일 목록 조회 (`get_email_list_simple` 호출):
+                         - 최신 메일(count)의 제목, 시간, 보낸 사람 목록만 간단히 조회합니다.
+                         - 제목은 요약하지 않고 그대로 리턴합니다.
+                         - 본문 내용이 포함될 경우, 내용이 길면 전체 최대 2000까지만 축약하여 리턴합니다.
+                
+                      [공통 규칙]
+                      - 첨부파일 URL은 반드시 하이퍼링크 형식([파일명](URL))으로 표현하여 사용자가 클릭할 수 있게 하세요.
+                      - 별도의 승인 상태 관리가 필요 없으므로 즉시 도구를 호출하여 결과를 안내합니다.
+                     </instruction>
+                
+                     <format>
+                      의도에 따라 가독성 좋은 마크다운 형식을 사용하세요.
+                      - 단일/여러 메일 요약:
+                        ### 📝 이메일 요약 결과
+                        - **제목**: [원본 제목]
+                        - **보낸이/시간**: [이름] / [시간]
+                        - **요약**: [핵심 내용 요약]
+                        - **첨부파일**: [파일명](URL) (없으면 '없음' 표시)
+                
+                      - 메일 목록 조회:
+                        ### 📧 이메일 목록
+                        - **[시간]** [원본 제목] (보낸이: [이름])
+                        - **내용 요약(300자 내)**: [내용...]
+                     </format>
                 """, false
             )
         );
