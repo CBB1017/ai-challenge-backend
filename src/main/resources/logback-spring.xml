@@ -4,9 +4,9 @@
     <property name="LOG_HOME" value="${LOG_HOME:-${user.home}/logs}"/>
     <property name="APP_NAME" value="template-app"/>
 
-    <!-- 개선된 패턴 (컬러 분리) -->
+    <!-- 개선된 패턴 (컬러 분리 + ID 축약: 앞 8자만 표시) -->
     <property name="LOGBACK_PATTERN"
-              value="%cyan(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%green(%thread)] %highlight(%-5level) %magenta(%logger{20}) %yellow([traceId:%X{trace_id} spanId:%X{span_id}]) - %replace(%msg){'\r?\n','\n\t'}%n"/>
+              value="%cyan(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%green(%thread)] %highlight(%-5level) %magenta(%logger{20}) %yellow([tid:%.-8X{trace_id} sid:%.-8X{span_id}]) - %replace(%msg){'\r?\n','\n\t'}%n"/>
     <!-- 콘솔 로그 (컬러풀 + 구분감) -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -24,14 +24,24 @@
             <totalSizeCap>5GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{20} [traceId:%X{trace_id}
-                spanId:%X{span_id}] - %msg%n
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{20} [tid:%.-8X{trace_id}
+                sid:%.-8X{span_id}] - %msg%n
             </pattern>
         </encoder>
+    </appender>
+
+    <appender name="OTLP" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+        <captureCodeAttributes>true</captureCodeAttributes>
+        <captureMarkerAttribute>true</captureMarkerAttribute>
+        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
+        <captureLoggerContext>true</captureLoggerContext>
+        <captureMdcAttributes>*</captureMdcAttributes>
     </appender>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
+        <appender-ref ref="OTLP"/>
     </root>
 </configuration>

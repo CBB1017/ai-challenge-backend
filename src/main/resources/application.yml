@@ -5,6 +5,10 @@ spring:
     active: dev
   slack:
     token: test #xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
+  logging:
+    pattern:
+      correlation: "[%X{trace_id:-},%X{span_id:-}] "
+    include-application-name: false
   ai:
     google:
       genai:
@@ -13,8 +17,10 @@ spring:
             #            model: gemini-2.5-pro #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
             #            model: gemini-2.5-flash #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
             #            model: gemini-2.5-flash-lite #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
-            model: gemini-3.1-flash-lite-preview #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
-        #            model: gemini-3.1-pro #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+#            model: gemini-3-flash-lite-preview #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+#            model: gemini-3.1-pro-preview #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+#            model: gemini-3-flash-preview #gemini-2.5-flash # 2.x 버전에 맞춰 최신 모델 사용 권장 (또는 gemini-1.5-pro)
+            model: gemini-3.1-flash-lite-preview
         embedding:
           text:
             options:
@@ -35,12 +41,18 @@ spring:
         multiplier: 2
         max-interval: 30s
     chat:
+      observations:
+        include-error-logging: true
+        log-completion: true
+        log-prompt: true
       memory:
         repository:
           jdbc:
             initialize-schema: always
     vectorstore:
       pgvector:
+        observations:
+          include-query-response: true
         index-type: HNSW
         distance-type: COSINE_DISTANCE
         dimensions: 1536
@@ -64,14 +76,34 @@ spring:
       username: default
       password: redispass
       client-type: lettuce
+  reactor:
+    context-propagation: auto
   jackson:
     default-property-inclusion: non_null
     serialization:
       indent-output: true
     deserialization:
       fail-on-unknown-properties: false
-#          jdbc:
-#            initialize-schema: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  tracing:
+    enabled: false # Java Agent가 처리하므로 라이브러리 방식은 비활성화
+  observations:
+    key-values:
+      application: ${spring.application.name}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  logging:
+    export:
+      enabled: true
 auth:
   mode: jwt # jwt, basic, form
 

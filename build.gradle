@@ -40,7 +40,10 @@ dependencies {
     // Now declare Jackson modules WITHOUT versions
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    implementation 'io.opentelemetry:opentelemetry-api:1.51.0'
+    implementation 'io.opentelemetry:opentelemetry-api'
+    implementation 'io.opentelemetry:opentelemetry-sdk'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.13.3-alpha'
+    implementation 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure'
 //	implementation 'org.liquibase:liquibase-core:4.33.0'
     implementation 'org.springframework.boot:spring-boot-starter-liquibase'
     implementation 'com.slack.api:slack-api-client:1.45.3'

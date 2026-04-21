@@ -96,6 +96,6 @@ logging:
     org.projectlombok: WARN
     com.googlecode.owasp: WARN
     # --- [spring ai] ---
-    org.springframework.ai: DEBUG
+    org.springframework.ai: INFO
     org.springframework.ai.vectorstore: DEBUG
     org.springframework.ai.rag: DEBUG

@@ -80,7 +80,55 @@ services:
       #    # ?대?留?李⑤떒???먰븯硫??꾨옒泥섎읆 ?ㅽ듃?뚰겕 ?뺤콉 異붽? 怨좊젮
     # cap_drop:
     #   - ALL
+  alloy:
+    image: grafana/alloy:latest
+    container_name: groupware-alloy
+    restart: always
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+    command: [ "run", "--server.http.listen-addr=0.0.0.0:12345", "/etc/alloy/config.alloy" ]
+    ports:
+      - "12345:12345" # Alloy UI (디버깅용)
+      - "4317:4317"  # OTLP gRPC (호스트 포트 변경: 4317 충돌 회피)
+      - "4318:4318"  # OTLP HTTP (호스트 포트 변경: 4318 충돌 회피)
+    networks:
+      - ai-challenge
 
+  # 모니터링 백엔드
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: groupware-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--enable-feature=exemplar-storage"
+      - "--web.enable-remote-write-receiver"
+    ports:
+      - "9090:9090"
+    networks:
+      - ai-challenge
+
+  loki:
+    image: grafana/loki:latest
+    container_name: groupware-loki
+    networks:
+      - ai-challenge
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: groupware-tempo
+    command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml
+    networks:
+      - ai-challenge
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: groupware-grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - ai-challenge
 #   spring-app:
 #     build: .
 #     container_name: spring-app

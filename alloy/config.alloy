@@ -1,0 +1,79 @@
+// --- 1. Exporters: 인프라 메트릭 수집 ---
+
+// PostgreSQL 메트릭 수집
+prometheus.exporter.postgres "local" {
+  data_source_names = ["postgresql://appuser:apppass@postgres:5432/groupware?sslmode=disable"]
+}
+
+// Redis 메트릭 수집
+prometheus.exporter.redis "local" {
+  redis_addr = "redis:6379"
+  redis_password = "redispass"
+}
+
+// --- 2. Scrape: 익스포터에서 데이터 긁어오기 ---
+
+prometheus.scrape "infrastructure" {
+  targets = concat(
+    prometheus.exporter.postgres.local.targets,
+    prometheus.exporter.redis.local.targets,
+  )
+  forward_to = [prometheus.remote_write.local.receiver]
+}
+
+// --- 3. OTLP & Pipeline: 기존 설정 유지 ---
+
+otelcol.receiver.otlp "default" {
+  http {
+    endpoint = "0.0.0.0:4318"
+    cors {
+      allowed_origins = ["http://localhost:5173", "http://localhost:3000"]
+    }
+    include_metadata = true
+  }
+  grpc {
+    endpoint = "0.0.0.0:4317"
+    include_metadata = true
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  output {
+    metrics = [otelcol.exporter.prometheus.to_prometheus.input]
+    traces  = [otelcol.exporter.otlp.to_tempo.input]
+    logs    = [otelcol.exporter.loki.to_loki.input]
+  }
+}
+
+otelcol.exporter.prometheus "to_prometheus" {
+  forward_to = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+otelcol.exporter.otlp "to_tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls { insecure = true }
+  }
+}
+
+otelcol.exporter.loki "to_loki" {
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
