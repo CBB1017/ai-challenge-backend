@@ -7,6 +7,8 @@ import com.brycenkorea.template.contants.ActionStatus;
 import com.brycenkorea.template.repository.ChatMessageRepository;
 import com.brycenkorea.template.repository.ChatRoomRepository;
 import com.brycenkorea.template.repository.ActionRepository;
+import com.brycenkorea.template.service.SseBroadcaster;
+import com.brycenkorea.template.util.ChatPromptUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -24,21 +26,25 @@ public class ChatEventListener {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ActionRepository actionRepository;
+    private final SseBroadcaster sseBroadcaster;
 
     @EventListener
     public Mono<Void> handleEmailSummary(EmailSummaryEvent event) {
-        log.info("[{}] 이메일 비동기 요약 이벤트 수신", event.roomId());
+        long startTime = System.currentTimeMillis();
+        log.info("[{}] 이메일 비동기 요약 이벤트 수신 - 작업 시작", event.roomId());
 
         return Mono.fromCallable(() -> {
                 log.info("비동기 AI 도구 호출 시작 (Intent: {})", event.sop().intentId());
                 
                 // 시스템 프롬프트 구성 (SOP 룰 주입)
-                String systemPrompt = event.sop().rules() + "\n\n" +
-                    "Please respond in the user's language (" + (event.language() != null ? event.language() : "ko") + ").";
+                String systemPrompt = ChatPromptUtil.buildSystemPrompt(event.sop().rules(), event.language());
 
                 // AI 호출 (도구 포함)
                 return baseChatClient.prompt()
-                    .system(s -> s.param("context", systemPrompt))
+                    .system(s -> s
+                        .param("currentDateTime", ChatPromptUtil.getCurrentDateTime())
+                        .param("currentDayOfWeek", ChatPromptUtil.getCurrentDayOfWeek(event.language()))
+                        .param("context", systemPrompt))
                     .user(event.prompt())
                     .toolContext(java.util.Map.of(
                         "userId", event.userId(),
@@ -50,44 +56,36 @@ public class ChatEventListener {
             })
             .subscribeOn(Schedulers.boundedElastic())
             .flatMap(result -> {
-                log.info("비동기 AI 호출 완료. 결과 저장 및 상태 업데이트 시작");
+                long aiDuration = System.currentTimeMillis() - startTime;
+                log.info("비동기 AI 호출 완료 (소요시간: {}ms). 결과 길이: {}", aiDuration, (result != null ? result.length() : 0));
                 
-                // 1. 결과 메시지 저장
-                Mono<ChatMessage> saveMsg = chatMessageRepository.save(
-                    ChatMessage.builder()
-                        .roomId(event.roomId())
-                        .role("ASSISTANT")
-                        .content(result)
-                        .build()
-                );
-
-                // 2. Action 상태 업데이트 (IN_PROGRESS -> SUCCESS)
-                Mono<Void> updateAction = actionRepository.findAllByRoomIdOrderByCreatedAtDesc(event.roomId())
-                    .filter(a -> "EMAIL_SUMMARY".equals(a.getActionName()) && a.getStatus() == ActionStatus.IN_PROGRESS)
-                    .next()
-                    .flatMap(action -> {
-                        action.setStatus(ActionStatus.SUCCESS);
-                        return actionRepository.save(action);
+                // 1. 기존 결과 메시지 업데이트 (Rewrite 방식)
+                return chatMessageRepository.findById(event.messageId())
+                    .flatMap(msg -> {
+                        msg.setContent(result);
+                        return chatMessageRepository.save(msg);
                     })
+                    .doOnSuccess(savedMsg -> {
+                        // SSE로 알림 전송
+                        sseBroadcaster.sendEmailSummaryComplete(event.userId(), savedMsg);
+                    })
+                    .then(Mono.defer(() -> {
+                        // 2. Action 상태 업데이트 (IN_PROGRESS -> SUCCESS)
+                        return actionRepository.findAllByRoomIdOrderByCreatedAtDesc(event.roomId())
+                            .filter(a -> event.sop().intentId().equals(a.getActionName()) && a.getStatus() == ActionStatus.IN_PROGRESS)
+                            .next()
+                            .flatMap(action -> {
+                                action.setStatus(ActionStatus.SUCCESS);
+                                return actionRepository.save(action);
+                            });
+                    }))
                     .then();
-
-                return saveMsg.then(updateAction);
             })
-            .onErrorResume(e -> {
+            .doOnSuccess(v -> log.info("이메일 비동기 요약 프로세스 최종 완료 (총 소요시간: {}ms)", System.currentTimeMillis() - startTime))
+            .doOnError(e -> {
                 log.error("이메일 비동기 요약 처리 중 에러", e);
-                // 에러 발생 시 Action 상태 업데이트
-                return actionRepository.findAllByRoomIdOrderByCreatedAtDesc(event.roomId())
-                    .filter(a -> "EMAIL_SUMMARY".equals(a.getActionName()) && a.getStatus() == ActionStatus.IN_PROGRESS)
-                    .next()
-                    .flatMap(action -> {
-                        action.setStatus(ActionStatus.ERROR);
-                        action.setContent("Error: " + e.getMessage());
-                        return actionRepository.save(action);
-                    })
-                    .then();
-            })
-            .doOnSuccess(v -> log.info("이메일 비동기 요약 프로세스 최종 완료"))
-            .doOnError(e -> log.error("최종 구독 에러 (상태 업데이트 실패 가능성)", e));
+                sseBroadcaster.sendError(event.userId(), "이메일 요약 중 오류가 발생했습니다.");
+            });
     }
 
     @EventListener
@@ -97,24 +95,7 @@ public class ChatEventListener {
         // 1. Mono.fromCallable을 사용하여 블로킹 작업(AI 호출)을 감쌉니다.
         return Mono.fromCallable(() -> {
                 log.info("AI 요약 요청 시작...");
-                String summaryPrompt = switch (event.language() != null ? event.language().toLowerCase() : "ko") {
-                    case "en" -> String.format(
-                        "Please summarize the following conversation as a chat room title within 15 characters.\nUser: %s\nAI: %s",
-                        event.userPrompt(), event.aiResponse()
-                    );
-                    case "ja" -> String.format(
-                        "次の会話を元に、チャットルームのタイトルを15文字以内で要約してください。\nユーザー: %s\nAI: %s",
-                        event.userPrompt(), event.aiResponse()
-                    );
-                    case "vi" -> String.format(
-                        "Dựa trên cuộc trò chuyện sau, hãy tóm tắt tiêu đề phòng trò chuyện trong vòng 15 ký tự.\nNgười dùng: %s\nAI: %s",
-                        event.userPrompt(), event.aiResponse()
-                    );
-                    default -> String.format(
-                        "다음 대화를 바탕으로 채팅방의 제목을 15자 이내로 요약해줘.\n유저: %s\nAI: %s",
-                        event.userPrompt(), event.aiResponse()
-                    );
-                };
+                String summaryPrompt = ChatPromptUtil.getTitleSummaryPrompt(event.language(), event.userPrompt(), event.aiResponse());
                 return baseChatClient.prompt().user(summaryPrompt).call().content();
             })
             // 2. 블로킹 AI 호출을 위한 전용 스레드 풀 할당

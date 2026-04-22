@@ -11,6 +11,7 @@ import com.brycenkorea.template.entity.ChatRoom;
 import com.brycenkorea.template.repository.ChatMessageRepository;
 import com.brycenkorea.template.repository.ChatRoomRepository;
 import com.brycenkorea.template.security.GroupwareAuthenticationToken;
+import com.brycenkorea.template.util.ChatPromptUtil;
 import com.brycenkorea.template.util.LocalizationUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,17 +65,17 @@ public class GeminiService {
                             return actionService.logAction(sop.intentId(), summary, ActionStatus.IN_PROGRESS, auth.getPrincipal(), roomUuid);
                         }))
                         .thenMany(Flux.defer(() -> {
-                            // 3. 비동기 처리 이벤트 발행
-                            eventPublisher.publishEvent(new EmailSummaryEvent(prompt, roomUuid, auth.getPrincipal(), language, sop, auth));
-
                             // 4. 사용자에게 즉시 반환할 안내 메시지 생성 (PromptResponse 형식)
-                            String infoMsg = LocalizationUtil.getLocale(language).getLanguage().equals("ko")
-                                ? "📥 **이메일 요약 요청이 접수되었습니다.**\n내용이 많을 경우 시간이 다소 소요될 수 있습니다. 완료 시 알림으로 알려드릴게요!"
-                                : "📥 **Email summary request received.**\nIt may take some time if there's a lot of content. We'll notify you when it's complete!";
+                            String infoMsg = ChatPromptUtil.getEmailSummaryInfoMsg(language);
                             
-                            // AI 응답으로 DB에 저장 (나중에 결과가 오면 추가 저장됨)
+                            // AI 응답으로 DB에 저장 (나중에 결과가 오면 이 메시지를 업데이트함)
                             return saveChatMessage(roomUuid, "ASSISTANT", infoMsg)
-                                .thenReturn(new PromptResponse(infoMsg));
+                                .flatMapMany(savedMsg -> {
+                                    // 3. 비동기 처리 이벤트 발행 (저장된 메시지 ID 포함)
+                                    eventPublisher.publishEvent(new EmailSummaryEvent(prompt, roomUuid, savedMsg.getMessageId(), auth.getPrincipal(), language, sop, auth));
+                                    
+                                    return Flux.just(new PromptResponse(infoMsg, savedMsg.getMessageId(), true));
+                                });
                         }));
                 }
 
@@ -85,16 +86,25 @@ public class GeminiService {
             })
             .filter(resp -> !resp.response().isEmpty())
             .onErrorResume(e -> {
-                log.error("[Gemini 에러 감지] 원인: {}", e.getMessage());
+                String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+                log.error("[Gemini 에러 감지] 원인: {}", errorMsg);
+                
                 String userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "general");
-
-                if (e.getMessage().contains("429") || e.getMessage().contains("quota")) {
+                if (errorMsg.contains("429") || errorMsg.contains("quota")) {
                     userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "quota");
-                } else if (e.getMessage().contains("safety")) {
+                } else if (errorMsg.contains("safety")) {
                     userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "safety");
+                } else if (errorMsg.contains("timeout") || errorMsg.contains("45000ms")) {
+                    userFriendlyMessage = LocalizationUtil.getErrorMessage(language, "timeout");
                 }
 
-                return Flux.just(new PromptResponse(userFriendlyMessage));
+                String finalMsg = userFriendlyMessage;
+                return saveChatMessage(UUID.fromString(roomId), "ASSISTANT", finalMsg)
+                    .onErrorResume(dbError -> {
+                        log.error("[GeminiService] 에러 메시지 DB 저장 실패: {}", dbError.getMessage());
+                        return Mono.empty();
+                    })
+                    .thenMany(Flux.just(new PromptResponse(finalMsg)));
             });
     }
 
@@ -113,18 +123,12 @@ public class GeminiService {
 
     private ChatClient.ChatClientRequestSpec buildRequestSpec(GroupwareAuthenticationToken auth, AgentWorkflowSOP sop, String prompt, String roomId, String language) {
         log.info("sop rule => {}", sop.rules());
-        LocalDateTime now = LocalDateTime.now();
-        String currentDateTime = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        Locale locale = LocalizationUtil.getLocale(language);
-        String currentDayOfWeek = now.getDayOfWeek().getDisplayName(TextStyle.FULL, locale);
-
-        String systemPrompt = sop.rules() + "\n\n" + 
-            "Please respond in the user's language (" + (language != null ? language : "ko") + ").";
+        String systemPrompt = ChatPromptUtil.buildSystemPrompt(sop.rules(), language);
 
         ChatClient.ChatClientRequestSpec spec = baseChatClient.prompt()
             .system(s -> s
-                .param("currentDateTime", currentDateTime)
-                .param("currentDayOfWeek", currentDayOfWeek)
+                .param("currentDateTime", ChatPromptUtil.getCurrentDateTime())
+                .param("currentDayOfWeek", ChatPromptUtil.getCurrentDayOfWeek(language))
                 .param("context", systemPrompt))
             .user(prompt)
             .toolContext(Map.of(
@@ -164,7 +168,7 @@ public class GeminiService {
         // 3. 조립
         return saveUserMsg.thenMany(aiStream)
             .concatWith(saveAssistantMessageAndTitle(roomUuid, prompt, buffer, language))
-            .thenMany(Flux.<ChatResponse>defer(() -> {
+            .concatWith(Flux.defer(() -> {
                 // 모든 작업 완료 후 액션 로그 기록 여부 판단
                 if (toolCalled[0] && isActionIntent(sop.intentId())) {
                     String summary = prompt.length() > 200 ? prompt.substring(0, 197) + "..." : prompt;

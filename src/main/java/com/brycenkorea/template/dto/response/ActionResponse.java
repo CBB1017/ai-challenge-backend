@@ -4,7 +4,7 @@ import com.brycenkorea.template.contants.ActionStatus;
 import com.brycenkorea.template.entity.Action;
 import lombok.Builder;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 @Builder
 public record ActionResponse(
@@ -14,7 +14,7 @@ public record ActionResponse(
     ActionStatus status,
     String statusDescription,
     String roomId,
-    OffsetDateTime createdAt
+    LocalDateTime createdAt
 ) {
     public static ActionResponse from(Action action) {
         return ActionResponse.builder()

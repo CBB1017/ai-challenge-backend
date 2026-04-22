@@ -1,6 +1,7 @@
 package com.brycenkorea.template.config;
 
 import com.brycenkorea.template.contants.AgentWorkflowSOP;
+import com.brycenkorea.template.util.ChatPromptUtil;
 import com.brycenkorea.template.util.ChatStateManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -22,27 +23,7 @@ public class IntentRouter {
 
     public IntentRouter(ChatClient.Builder builder, ChatStateManager stateManager) {
         // 라우터 전용으로 가볍고 빠른 모델을 세팅합니다.
-        this.routerClient = builder.defaultSystem(
-            """
-                You are a high-performance router that classifies the intent of internal groupware users.
-                
-                [Mission]
-                Analyze the user's current input and previous conversation context to classify them into one of the following categories:
-                1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date (Note: Simple inquiry or confirmation does not apply)
-                2. OVERTIME_MONTHLY: Batch application for overtime/holiday work for a specific month (Note: Simple inquiry or confirmation does not apply)
-                3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave (Note: Simple inquiry or confirmation does not apply)
-                4. EMAIL_SUMMARY: Inquiry or summary of received emails (e.g., "Summarize recent emails", "Show my email list", "Check email content", "이메일 요약해줘").
-                5. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (e.g., "vacation rule", "leave policy", "규정 확인") (Requires RAG)
-                6. GENERAL: HR, audit, general conversation, checking/confirming attendance information, or cases that do not fall into the above categories.
-                
-                [Important Constraints]
-                - If the user is asking about "rules", "policies", "standards", or "how to" regarding HR or company procedures (e.g., "leave rule", "vacation policy"), classify as 'POLICY'.
-                - If the user gives a positive/agreeing response like 'yes', 'proceed', 'submit it', 'okay', 'confirm', or requests to proceed with approval, identify which application/approval process was being discussed in the previous conversation and select that category.
-                - If the user simply asks to "show", "tell", or "check" their own overtime hours or commute records, it should be classified as 'GENERAL'.
-                - For example, if 'overtime hours were calculated' or 'vacation dates were checked' just before and the AI asked 'Shall I submit it?', you must accurately classify it as 'OVERTIME_ONEDAY' or 'VACATION' at the moment of user's consent.
-                - Output ONLY the category name.
-                """
-        ).build();
+        this.routerClient = builder.defaultSystem(ChatPromptUtil.getIntentRouterSystemPrompt()).build();
         this.stateManager = stateManager;
 
         // TODO: 실제 환경에서는 DB나 YAML에서 읽어와 Registry를 초기화합니다.

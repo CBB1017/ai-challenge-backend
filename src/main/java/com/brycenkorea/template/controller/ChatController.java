@@ -6,8 +6,11 @@ import com.brycenkorea.template.dto.request.ChatRoomRequest;
 import com.brycenkorea.template.entity.ChatRoom;
 import com.brycenkorea.template.repository.ChatMessageRepository;
 import com.brycenkorea.template.repository.ChatRoomRepository;
+import com.brycenkorea.template.service.SseBroadcaster;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
@@ -24,6 +27,13 @@ public class ChatController {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final SseBroadcaster sseBroadcaster;
+
+    @GetMapping(value = "/sse/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<Object>> subscribe(Authentication authentication) {
+        String userId = Objects.requireNonNull(authentication.getPrincipal()).toString();
+        return sseBroadcaster.subscribe(userId);
+    }
 
     @GetMapping("/rooms")
     public Flux<ChatRoomResponse> getChatRooms(Authentication authentication) {

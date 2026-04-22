@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.reactivestreams.Publisher;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -19,7 +20,11 @@ public class LoggingAspect {
         log.info("START: {} {}", joinPoint.getSignature(), Arrays.toString(joinPoint.getArgs()));
         try {
             Object result = joinPoint.proceed();
-            log.info("END: {}", result);
+            if (result instanceof Publisher) {
+                log.info("END: {} (Publisher returned)", joinPoint.getSignature().getName());
+            } else {
+                log.info("END: {}", result);
+            }
             return result;
         } catch (Throwable ex) {
             if (ex instanceof ApiException apiEx) {

@@ -7,6 +7,7 @@ import java.util.UUID;
 public record EmailSummaryEvent(
     String prompt,
     UUID roomId,
+    UUID messageId,
     String userId,
     String language,
     AgentWorkflowSOP sop,

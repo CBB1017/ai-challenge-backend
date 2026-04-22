@@ -43,7 +43,13 @@ public class LocalizationUtil {
             if (isVi) return "Nội dung nhập đã bị chặn bởi chính sách an toàn. Vui lòng thử cách khác.";
             return "입력하신 내용이 안전 정책에 의해 차단되었습니다. 다른 방식으로 질문해 주세요.";
         }
-        
+        if ("timeout".equals(type)) {
+            if (isEn) return "The response is taking too long. Please try again in a moment.";
+            if (isJa) return "応答に時間がかかっています。しばらくしてからもう一度お試しください。";
+            if (isVi) return "Thời gian phản hồi quá lâu. Vui lòng thử lại sau giây lát.";
+            return "답변이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
+        }
+
         if (isEn) return "Sorry, the service is currently busy. Please try again later.";
         if (isJa) return "申し訳ありません。現在サービスが混み合っています。後でもう一度お試しください。";
         if (isVi) return "Xin lỗi, dịch vụ hiện đang bận. Vui lòng thử lại sau.";
