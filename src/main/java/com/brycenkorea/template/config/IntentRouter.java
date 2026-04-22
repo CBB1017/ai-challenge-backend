@@ -138,8 +138,11 @@ public class IntentRouter {
         if (isConfirmIntent(text)) return null;
 
         // 1. [EMAIL_SUMMARY] 이메일 요약/조회 관련
-        if (cleanText.contains("이메일") || cleanText.contains("메일") || 
-            cleanText.contains("email") || cleanText.contains("mail")) {
+        if (cleanText.contains("이메일") || cleanText.contains("메일") || cleanText.contains("전자우편") || cleanText.contains("수신함") ||
+            cleanText.contains("email") || cleanText.contains("mail") || cleanText.contains("inbox") ||
+            cleanText.contains("邮件") || cleanText.contains("邮箱") || cleanText.contains("收件箱") ||
+            cleanText.contains("メール") || cleanText.contains("受信箱") ||
+            cleanText.contains("thưđiệntử") || cleanText.contains("hộpthư")) {
             return sopRegistry.get("EMAIL_SUMMARY");
         }
 
@@ -168,13 +171,14 @@ public class IntentRouter {
         if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
             cleanText.contains("야근") || cleanText.contains("초과근무") || cleanText.contains("연장근무") ||
             cleanText.contains("overtime") || cleanText.contains("extrawork") || cleanText.contains("nightshift") || 
-            cleanText.contains("workinglate") || cleanText.contains("殘業") || cleanText.contains("残業") || 
+            cleanText.contains("workinglate") || cleanText.contains("加班") || cleanText.contains("殘業") || cleanText.contains("残業") || 
             cleanText.contains("làmthêm") || cleanText.contains("tăngca")) {
 
             if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달") ||
-                cleanText.contains("month") || cleanText.contains("今月") || cleanText.contains("tháng")) {
+                cleanText.contains("month") || cleanText.contains("月") || cleanText.contains("今月") || cleanText.contains("tháng")) {
                 if (cleanText.contains("신청") || cleanText.contains("상신") ||
                     cleanText.contains("apply") || cleanText.contains("submit") ||
+                    cleanText.contains("申请") || cleanText.contains("提交") ||
                     cleanText.contains("申請") || cleanText.contains("đăngký")) {
                     return sopRegistry.get("OVERTIME_MONTHLY");
                 }
@@ -190,6 +194,7 @@ public class IntentRouter {
             cleanText.contains("vacation") || cleanText.contains("leave") || cleanText.contains("holiday") || 
             cleanText.contains("dayoff") || cleanText.contains("off") || cleanText.contains("break") || 
             cleanText.contains("sick") || cleanText.contains("absence") ||
+            cleanText.contains("请假") || cleanText.contains("休假") ||
             cleanText.contains("休暇") || cleanText.contains("有休") || cleanText.contains("休み") ||
             cleanText.contains("nghỉ") || cleanText.contains("vắngmặt")) {
             return sopRegistry.get("VACATION");
@@ -340,33 +345,34 @@ public class IntentRouter {
             "EMAIL_SUMMARY", new AgentWorkflowSOP(
                 "EMAIL_SUMMARY", """
                      당신은 현재 [이메일 요약 및 조회 워크플로우]를 수행 중입니다.
-                     아래의 지침(<instruction>)과 포맷(<format>)을 준수하여 사용자에게 답변하세요.
+                     이 작업은 데이터 양에 따라 시간이 오래 걸릴 수 있으므로, 사용자의 편의를 위해 '비동기 작업 접수' 방식으로 안내하고 처리해야 합니다.
+                     아래의 지침(<instruction>)과 포맷(<format>)을 준수하세요.
                 
                      <instruction>
-                      사용자의 요청 의도에 따라 다음 3가지 중 적절한 MCP 도구를 호출합니다.
-                      모든 응답에는 '보낸 사람', '제목', '시간' 정보가 기본적으로 포함되어야 합니다.
+                      1. 사용자의 요청 의도에 따라 다음 3가지 중 적절한 MCP 도구를 호출합니다.
+                         - [기능 1] 단일 메일 요약 (`get_single_email_detail` 호출)
+                         - [기능 2] 여러 메일 요약 (`get_multiple_emails_with_summary` 호출)
+                         - [기능 3] 메일 목록 조회 (`get_email_list_simple` 호출)
                 
-                      1. 단일 메일 요약 (`get_single_email_detail` 호출):
-                         - 특정 순번(index)의 메일 하나에 대해 제목, 요약 내용, 첨부파일을 조회합니다.
-                         - 제목과 내용을 요약하여 리턴합니다.
-                         - 첨부파일이 있다면 URL 리스트를 포함합니다. (형식: [파일명](URL))
-                      2. 여러 메일 요약 (`get_multiple_emails_with_summary` 호출):
-                         - 최근 N개(count)의 메일 리스트에 대해 각각의 제목, 요약 내용, 첨부파일을 조회합니다.
-                         - 각 메일의 제목과 내용을 요약하여 리턴합니다.
-                         - 본문 내용이 포함될 경우, 내용이 길면 전체 최대 2000자까지만 축약하여 리턴합니다.
-                         - 각 메일별 첨부파일 URL 리스트를 포함합니다. (형식: [파일명](URL))
-                      3. 메일 목록 조회 (`get_email_list_simple` 호출):
-                         - 최신 메일(count)의 제목, 시간, 보낸 사람 목록만 간단히 조회합니다.
-                         - 제목은 요약하지 않고 그대로 리턴합니다.
-                         - 본문 내용이 포함될 경우, 내용이 길면 전체 최대 2000까지만 축약하여 리턴합니다.
+                      2. 비동기 처리 지침:
+                         - 당신은 백그라운드에서 실행되는 AI입니다. 사용자에게 "접수되었습니다"와 같은 안내를 할 필요가 없습니다.
+                         - 도구를 실행하여 얻은 이메일 요약/목록 결과를 바탕으로 아래 <format>에 맞춰 '최종 답변'만 생성하세요.
+                         - 당신이 생성한 답변은 자동으로 시스템에 저장되어 사용자에게 알림으로 전달됩니다.
                 
-                      [공통 규칙]
-                      - 첨부파일 URL은 반드시 하이퍼링크 형식([파일명](URL))으로 표현하여 사용자가 클릭할 수 있게 하세요.
-                      - 별도의 승인 상태 관리가 필요 없으므로 즉시 도구를 호출하여 결과를 안내합니다.
+                      3. 응답 공통 규칙:
+                         - 모든 응답에는 '보낸 사람', '제목', '시간' 정보가 기본적으로 포함되어야 합니다.
+                         - 기능 3(목록 조회)의 경우 제목은 요약하지 않고 그대로 리턴하며, 내용이 길면 최대 300자까지만 축약합니다.
+                         - 첨부파일 URL은 반드시 하이퍼링크 형식([파일명](URL))으로 표현하세요.
                      </instruction>
                 
                      <format>
                       의도에 따라 가독성 좋은 마크다운 형식을 사용하세요.
+                
+                      [접수 안내 메시지]
+                      > 📥 **이메일 요약 요청이 접수되었습니다.**
+                      > 내용이 많을 경우 시간이 다소 소요될 수 있습니다. 완료 시 알림으로 알려드릴게요!
+                
+                      [결과 출력 형식]
                       - 단일/여러 메일 요약:
                         ### 📝 이메일 요약 결과
                         - **제목**: [원본 제목]
@@ -378,6 +384,7 @@ public class IntentRouter {
                         ### 📧 이메일 목록
                         - **[시간]** [원본 제목] (보낸이: [이름])
                         - **내용 요약(300자 내)**: [내용...]
+                        - **첨부파일**: [파일명](URL) (없으면 '없음' 표시)
                      </format>
                 """, false
             )

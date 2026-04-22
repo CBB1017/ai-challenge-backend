@@ -3,6 +3,7 @@ package com.brycenkorea.template.service;
 import com.brycenkorea.template.config.IntentRouter;
 import com.brycenkorea.template.contants.ActionStatus;
 import com.brycenkorea.template.contants.AgentWorkflowSOP;
+import com.brycenkorea.template.dto.EmailSummaryEvent;
 import com.brycenkorea.template.dto.ChatFirstInteractedEvent;
 import com.brycenkorea.template.dto.response.PromptResponse;
 import com.brycenkorea.template.entity.ChatMessage;
@@ -52,11 +53,36 @@ public class GeminiService {
             .mapNotNull(SecurityContext::getAuthentication)
             .cast(GroupwareAuthenticationToken.class)
             .flatMapMany(auth -> {
+                // [비동기 처리] EMAIL_SUMMARY 인텐트인 경우 이벤트를 발행하고 즉시 응답 반환
+                if ("EMAIL_SUMMARY".equals(sop.intentId())) {
+                    UUID roomUuid = UUID.fromString(roomId);
+                    // 1. 유저 메시지 저장
+                    return saveChatMessage(roomUuid, "USER", prompt)
+                        .thenMany(Flux.defer(() -> {
+                            // 2. 비동기 작업 시작 알림(Action) 기록
+                            String summary = prompt.length() > 200 ? prompt.substring(0, 197) + "..." : prompt;
+                            return actionService.logAction(sop.intentId(), summary, ActionStatus.IN_PROGRESS, auth.getPrincipal(), roomUuid);
+                        }))
+                        .thenMany(Flux.defer(() -> {
+                            // 3. 비동기 처리 이벤트 발행
+                            eventPublisher.publishEvent(new EmailSummaryEvent(prompt, roomUuid, auth.getPrincipal(), language, sop, auth));
+
+                            // 4. 사용자에게 즉시 반환할 안내 메시지 생성 (PromptResponse 형식)
+                            String infoMsg = LocalizationUtil.getLocale(language).getLanguage().equals("ko")
+                                ? "📥 **이메일 요약 요청이 접수되었습니다.**\n내용이 많을 경우 시간이 다소 소요될 수 있습니다. 완료 시 알림으로 알려드릴게요!"
+                                : "📥 **Email summary request received.**\nIt may take some time if there's a lot of content. We'll notify you when it's complete!";
+                            
+                            // AI 응답으로 DB에 저장 (나중에 결과가 오면 추가 저장됨)
+                            return saveChatMessage(roomUuid, "ASSISTANT", infoMsg)
+                                .thenReturn(new PromptResponse(infoMsg));
+                        }));
+                }
+
                 ChatClient.ChatClientRequestSpec spec = buildRequestSpec(auth, sop, prompt, roomId, language);
-                return executeChatFlow(spec, prompt, roomId, sop, auth.getPrincipal(), language);
+                return executeChatFlow(spec, prompt, roomId, sop, auth.getPrincipal(), language)
+                    .filter(this::isNotToolCall)
+                    .map(this::convertToPromptResponse);
             })
-            .filter(this::isNotToolCall)
-            .map(this::convertToPromptResponse)
             .filter(resp -> !resp.response().isEmpty())
             .onErrorResume(e -> {
                 log.error("[Gemini 에러 감지] 원인: {}", e.getMessage());

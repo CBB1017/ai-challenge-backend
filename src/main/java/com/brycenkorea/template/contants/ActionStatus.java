@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ActionStatus {
     PENDING("대기"),
+    IN_PROGRESS("진행 중"),
     SUCCESS("성공"),
     ERROR("에러"),
     ROLLBACK("롤백");
