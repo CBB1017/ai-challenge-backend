@@ -5,6 +5,7 @@ import com.brycenkorea.template.contants.ActionStatus;
 import com.brycenkorea.template.contants.AgentWorkflowSOP;
 import com.brycenkorea.template.dto.EmailSummaryEvent;
 import com.brycenkorea.template.dto.ChatFirstInteractedEvent;
+import com.brycenkorea.template.dto.response.ActionResponse;
 import com.brycenkorea.template.dto.response.PromptResponse;
 import com.brycenkorea.template.entity.ChatMessage;
 import com.brycenkorea.template.entity.ChatRoom;
@@ -23,10 +24,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Service;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -44,6 +47,7 @@ public class GeminiService {
     private final ChatRoomRepository chatRoomRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ActionService actionService;
+    private final SseBroadcaster sseBroadcaster;
 
     public Mono<AgentWorkflowSOP> determineIntent(String prompt, String roomId) {
         return intentRouter.determineSop(prompt, roomId);
@@ -75,7 +79,7 @@ public class GeminiService {
                                     eventPublisher.publishEvent(new EmailSummaryEvent(prompt, roomUuid, savedMsg.getMessageId(), auth.getPrincipal(), language, sop, auth));
                                     
                                     // 제목 요약 체크 및 이벤트 발행
-                                    return checkAndTriggerTitle(roomUuid, prompt, infoMsg, language)
+                                    return checkAndTriggerTitle(roomUuid, auth.getPrincipal(), prompt, infoMsg, language)
                                         .thenMany(Flux.just(new PromptResponse(infoMsg, savedMsg.getMessageId(), true)));
                                 });
                         }));
@@ -153,6 +157,15 @@ public class GeminiService {
         // 1. 유저 메시지 저장
         Mono<ChatMessage> saveUserMsg = saveChatMessage(roomUuid, "USER", prompt);
 
+        // [추가] 액션 인텐트인 경우 시작 시점에 IN_PROGRESS 로그 기록
+        Mono<Void> logInProgress = Mono.defer(() -> {
+            if (isActionIntent(sop.intentId())) {
+                String summary = prompt.length() > 200 ? prompt.substring(0, 197) + "..." : prompt;
+                return actionService.logAction(sop.intentId(), summary, ActionStatus.IN_PROGRESS, userId, roomUuid).then();
+            }
+            return Mono.empty();
+        });
+
         // 2. AI 스트림 정의
         Flux<ChatResponse> aiStream = Flux.defer(() -> spec.stream().chatResponse())
             .subscribeOn(Schedulers.boundedElastic())
@@ -167,25 +180,52 @@ public class GeminiService {
                     .ifPresent(buffer::append);
             });
 
-        // 3. 조립
-        return saveUserMsg.thenMany(aiStream)
-            .concatWith(saveAssistantMessageAndTitle(roomUuid, prompt, buffer, language))
+        // 3. 액션 상태 주기적 푸시 스트림 (AI 스트림 종료 시 함께 종료)
+        Flux<ChatResponse> actionPushStream = Flux.interval(Duration.ofSeconds(2))
+            .flatMap(i -> actionService.getActionsByRoom(roomUuid)
+                .map(ActionResponse::from)
+                .collectList())
+            .doOnNext(actions -> sseBroadcaster.sendEvent(userId, "action-list-update", actions))
+            .thenMany(Flux.empty());
+
+        // 4. 조립: saveUserMsg -> logInProgress -> (aiStream + actionPushStream 공유 구독)
+        return saveUserMsg.then(logInProgress).thenMany(
+            aiStream.publish(shared ->
+                Flux.merge(
+                    shared,
+                    actionPushStream.takeUntilOther(shared.then())
+                )
+            )
+        )
+            .concatWith(saveAssistantMessageAndTitle(roomUuid, userId, prompt, buffer, language))
             .concatWith(Flux.defer(() -> {
-                // 모든 작업 완료 후 액션 로그 기록 여부 판단
-                if (toolCalled[0] && isActionIntent(sop.intentId())) {
-                    String summary = prompt.length() > 200 ? prompt.substring(0, 197) + "..." : prompt;
-                    return actionService.logAction(sop.intentId(), summary, ActionStatus.SUCCESS, userId, roomUuid)
-                        .doOnNext(a -> log.info("[ActionLog] 액션 기록 완료: {}", a.getActionName()))
+                // 모든 작업 완료 후 액션 로그 상태 업데이트
+                if (isActionIntent(sop.intentId())) {
+                    ActionStatus finalStatus = toolCalled[0] ? ActionStatus.SUCCESS : ActionStatus.ERROR;
+                    // 기존 IN_PROGRESS 상태인 액션을 찾아 업데이트
+                    return actionService.getActionsByRoom(roomUuid)
+                        .filter(a -> sop.intentId().equals(a.getActionName()) && a.getStatus() == ActionStatus.IN_PROGRESS)
+                        .next()
+                        .flatMap(action -> {
+                            action.setStatus(finalStatus);
+                            return actionService.saveAction(action);
+                        })
+                        .doOnNext(a -> log.info("[ActionLog] 액션 상태 업데이트 완료: {} -> {}", a.getActionName(), finalStatus))
                         .thenMany(Flux.empty());
                 }
                 return Flux.empty();
             }))
             .onErrorResume(e -> {
-                // 에러 발생 시, 액션 대상 SOP라면 에러 상태로 로그 기록
+                // 에러 발생 시, 액션 대상 SOP라면 에러 상태로 로그 업데이트
                 if (isActionIntent(sop.intentId())) {
-                    String summary = prompt.length() > 200 ? prompt.substring(0, 197) + "..." : prompt;
-                    return actionService.logAction(sop.intentId(), summary, ActionStatus.ERROR, userId, roomUuid)
-                        .doOnNext(a -> log.info("[ActionLog] 에러 액션 기록 완료: {}", a.getActionName()))
+                    return actionService.getActionsByRoom(roomUuid)
+                        .filter(a -> sop.intentId().equals(a.getActionName()) && a.getStatus() == ActionStatus.IN_PROGRESS)
+                        .next()
+                        .flatMap(action -> {
+                            action.setStatus(ActionStatus.ERROR);
+                            return actionService.saveAction(action);
+                        })
+                        .doOnNext(a -> log.info("[ActionLog] 에러 액션 상태 업데이트 완료: {}", a.getActionName()))
                         .then(Mono.error(e));
                 }
                 return Mono.error(e);
@@ -214,7 +254,7 @@ public class GeminiService {
         ).doOnError(e -> log.error("{} 메시지 저장 중 에러 발생: {}", role, e.getMessage()));
     }
 
-    private Mono<ChatResponse> saveAssistantMessageAndTitle(UUID roomUuid, String prompt, StringBuilder buffer, String language) {
+    private Mono<ChatResponse> saveAssistantMessageAndTitle(UUID roomUuid, String userId, String prompt, StringBuilder buffer, String language) {
         return Mono.defer(() -> {
             String fullContent = buffer.toString();
             log.info("[Chain] 답변 저장 시작...");
@@ -222,7 +262,7 @@ public class GeminiService {
             return saveChatMessage(roomUuid, "ASSISTANT", fullContent)
                 .flatMap(savedMsg -> {
                     log.info("[Chain] 답변 저장 완료, 제목 체크 시작");
-                    return checkAndTriggerTitle(roomUuid, prompt, fullContent, language);
+                    return checkAndTriggerTitle(roomUuid, userId, prompt, fullContent, language);
                 })
                 .then(Mono.empty());
         });
@@ -240,13 +280,13 @@ public class GeminiService {
         return new PromptResponse(content);
     }
 
-    private Mono<Void> checkAndTriggerTitle(UUID roomUuid, String userMsg, String aiMsg, String language) {
+    private Mono<Void> checkAndTriggerTitle(UUID roomUuid, String userId, String userMsg, String aiMsg, String language) {
         return chatRoomRepository.findById(roomUuid)
             .flatMap(room -> {
                 // 공백이나 대소문자 문제일 수 있으므로 trim()과 equals 처리 주의
                 String currentTitle = room.getTitle() != null ? room.getTitle().trim() : "";
                 if (isNewChatTitle(currentTitle)) {
-                    eventPublisher.publishEvent(new ChatFirstInteractedEvent(roomUuid, userMsg, aiMsg, language));
+                    eventPublisher.publishEvent(new ChatFirstInteractedEvent(roomUuid, userId, userMsg, aiMsg, language));
                 }
                 return Mono.empty();
             })

@@ -82,6 +82,16 @@ public class SseBroadcaster {
     }
 
     /**
+     * 채팅방 제목 업데이트 시 프론트엔드에 알림을 전송합니다.
+     *
+     * @param userId 사용자 ID
+     * @param titleData 업데이트된 제목 정보
+     */
+    public void sendTitleUpdate(String userId, Object titleData) {
+        sendEvent(userId, "chat-title-update", titleData);
+    }
+
+    /**
      * 작업 중 에러 발생 시 프론트엔드에 알림을 전송합니다.
      * 
      * @param userId 사용자 ID

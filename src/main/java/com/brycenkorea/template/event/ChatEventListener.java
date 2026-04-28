@@ -2,6 +2,7 @@ package com.brycenkorea.template.event;
 
 import com.brycenkorea.template.dto.ChatFirstInteractedEvent;
 import com.brycenkorea.template.dto.EmailSummaryEvent;
+import com.brycenkorea.template.dto.response.ActionResponse;
 import com.brycenkorea.template.entity.ChatMessage;
 import com.brycenkorea.template.contants.ActionStatus;
 import com.brycenkorea.template.repository.ChatMessageRepository;
@@ -14,8 +15,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+
+import java.time.Duration;
 
 @Component
 @Slf4j
@@ -33,7 +38,8 @@ public class ChatEventListener {
         long startTime = System.currentTimeMillis();
         log.info("[{}] 이메일 비동기 요약 이벤트 수신 - 작업 시작", event.roomId());
 
-        return Mono.fromCallable(() -> {
+        // 1. 메인 프로세스 정의
+        Mono<Void> emailProcess = Mono.fromCallable(() -> {
                 log.info("비동기 AI 도구 호출 시작 (Intent: {})", event.sop().intentId());
                 
                 // 시스템 프롬프트 구성 (SOP 룰 주입)
@@ -80,7 +86,24 @@ public class ChatEventListener {
                             });
                     }))
                     .then();
-            })
+            });
+
+        // 2. 액션 상태 주기적 푸시 스트림
+        Flux<Void> actionPushStream = Flux.interval(Duration.ofSeconds(2))
+            .flatMap(i -> actionRepository.findAllByRoomIdOrderByCreatedAtDesc(event.roomId())
+                .map(ActionResponse::from)
+                .collectList())
+            .doOnNext(actions -> sseBroadcaster.sendEvent(event.userId(), "action-list-update", actions))
+            .then().flux();
+
+        // 3. 합치기: emailProcess와 actionPushStream을 병렬로 실행하되, 공유 구독을 통해 중복 실행 방지
+        return emailProcess.flux().publish(shared ->
+                Flux.merge(
+                    shared,
+                    actionPushStream.takeUntilOther(shared.then())
+                )
+            )
+            .then()
             .doOnSuccess(v -> log.info("이메일 비동기 요약 프로세스 최종 완료 (총 소요시간: {}ms)", System.currentTimeMillis() - startTime))
             .doOnError(e -> {
                 log.error("이메일 비동기 요약 처리 중 에러", e);
@@ -89,7 +112,7 @@ public class ChatEventListener {
     }
 
     @EventListener
-    public Mono<Integer> handleFirstInteraction(ChatFirstInteractedEvent event) {
+    public Mono<Void> handleFirstInteraction(ChatFirstInteractedEvent event) {
         log.info("[{}] 첫 대화 제목 요약 이벤트 수신", event.roomId());
 
         // 1. Mono.fromCallable을 사용하여 블로킹 작업(AI 호출)을 감쌉니다.
@@ -104,11 +127,17 @@ public class ChatEventListener {
                 if (!title.isBlank()) {
                     String cleanTitle = title.replace("\"", "").trim();
                     log.info("요약 완료 -> DB 업데이트: {}", cleanTitle);
-                    return chatRoomRepository.updateTitle(event.roomId(), cleanTitle);
+                    return chatRoomRepository.updateTitle(event.roomId(), cleanTitle)
+                        .doOnSuccess(v -> {
+                            // 3. SSE로 제목 업데이트 알림 전송
+                            sseBroadcaster.sendTitleUpdate(event.userId(), 
+                                java.util.Map.of("roomId", event.roomId(), "title", cleanTitle));
+                        });
                 }
                 return Mono.empty();
             })
             .doOnSuccess(v -> log.debug("첫 대화 제목 요약 프로세스 완료"))
-            .doOnError(e -> log.error("제목 생성/업데이트 중 에러", e));
+            .doOnError(e -> log.error("제목 생성/업데이트 중 에러", e))
+            .then();
     }
 }

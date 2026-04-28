@@ -6,6 +6,7 @@ import com.brycenkorea.template.repository.ActionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
@@ -28,5 +29,13 @@ public class ActionService {
         return actionRepository.save(action)
             .doOnSuccess(a -> log.info("[Action] Logged: {} ({}) for {}", actionName, status, userId))
             .doOnError(e -> log.error("[Action] Logging failed: {}", e.getMessage()));
+    }
+
+    public Flux<Action> getActionsByRoom(UUID roomId) {
+        return actionRepository.findAllByRoomIdOrderByCreatedAtDesc(roomId);
+    }
+
+    public Mono<Action> saveAction(Action action) {
+        return actionRepository.save(action);
     }
 }
