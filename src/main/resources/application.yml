@@ -1,3 +1,6 @@
+server:
+  shutdown: graceful
+
 spring:
   application:
     name: template-prod
@@ -5,10 +8,6 @@ spring:
     active: dev
   slack:
     token: test #xoxb-7973206210161-9255580166432-oFjXhbg6xWG1geZkrYx4OOBt
-  logging:
-    pattern:
-      correlation: "[%X{trace_id:-},%X{span_id:-}] "
-    include-application-name: false
   ai:
     google:
       genai:
@@ -84,14 +83,14 @@ spring:
       indent-output: true
     deserialization:
       fail-on-unknown-properties: false
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 management:
   endpoints:
     web:
       exposure:
         include: "health,info,metrics,prometheus"
-  tracing:
-    enabled: false # Java Agent가 처리하므로 라이브러리 방식은 비활성화
   observations:
     key-values:
       application: ${spring.application.name}
@@ -103,6 +102,9 @@ management:
         http.server.requests: true
   logging:
     export:
+      enabled: true
+  httpexchanges:
+    recording:
       enabled: true
 auth:
   mode: jwt # jwt, basic, form

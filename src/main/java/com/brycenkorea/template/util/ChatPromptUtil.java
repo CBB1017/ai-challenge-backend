@@ -61,7 +61,7 @@ public class ChatPromptUtil {
     public static String getEmailSummaryInfoMsg(String language) {
         boolean isKo = "ko".equalsIgnoreCase(language) || (language != null && language.startsWith("ko"));
         if (isKo) {
-            return "📥 **이메일 요약 요청이 접수되었습니다.**\n내용이 많을 경우 시간이 다소 소요될 수 있습니다. 완료 시 알림으로 알려드릴게요!";
+            return "📥 **이메일 요약 요청이 접수되었습니다.**\n내용이 많을 경우 최대 10개까지만 요약되며 시간이 다소 소요될 수 있습니다. 완료 시 알림으로 알려드릴게요!";
         } else {
             return "📥 **Email summary request received.**\nIt may take some time if there's a lot of content. We'll notify you when it's complete!";
         }

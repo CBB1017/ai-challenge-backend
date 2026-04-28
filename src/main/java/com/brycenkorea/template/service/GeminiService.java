@@ -74,7 +74,9 @@ public class GeminiService {
                                     // 3. 비동기 처리 이벤트 발행 (저장된 메시지 ID 포함)
                                     eventPublisher.publishEvent(new EmailSummaryEvent(prompt, roomUuid, savedMsg.getMessageId(), auth.getPrincipal(), language, sop, auth));
                                     
-                                    return Flux.just(new PromptResponse(infoMsg, savedMsg.getMessageId(), true));
+                                    // 제목 요약 체크 및 이벤트 발행
+                                    return checkAndTriggerTitle(roomUuid, prompt, infoMsg, language)
+                                        .thenMany(Flux.just(new PromptResponse(infoMsg, savedMsg.getMessageId(), true)));
                                 });
                         }));
                 }

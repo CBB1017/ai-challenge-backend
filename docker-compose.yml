@@ -110,6 +110,8 @@ services:
   loki:
     image: grafana/loki:latest
     container_name: groupware-loki
+    ports:
+      - "3100:3100"
     networks:
       - ai-challenge
 
@@ -119,6 +121,8 @@ services:
     command: [ "-config.file=/etc/tempo/tempo.yaml" ]
     volumes:
       - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml
+    ports:
+      - "3200:3200"
     networks:
       - ai-challenge
 

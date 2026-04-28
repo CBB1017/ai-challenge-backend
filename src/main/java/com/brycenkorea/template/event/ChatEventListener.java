@@ -57,7 +57,7 @@ public class ChatEventListener {
             .subscribeOn(Schedulers.boundedElastic())
             .flatMap(result -> {
                 long aiDuration = System.currentTimeMillis() - startTime;
-                log.info("비동기 AI 호출 완료 (소요시간: {}ms). 결과 길이: {}", aiDuration, (result != null ? result.length() : 0));
+                log.info("비동기 AI 호출 완료 (소요시간: {}ms). 결과 길이: {}", aiDuration, result.length());
                 
                 // 1. 기존 결과 메시지 업데이트 (Rewrite 방식)
                 return chatMessageRepository.findById(event.messageId())
