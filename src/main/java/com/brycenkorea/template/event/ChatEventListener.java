@@ -71,9 +71,23 @@ public class ChatEventListener {
                         msg.setContent(result);
                         return chatMessageRepository.save(msg);
                     })
+                    .publishOn(Schedulers.boundedElastic())
                     .doOnSuccess(savedMsg -> {
                         // SSE로 알림 전송
                         sseBroadcaster.sendEmailSummaryComplete(event.userId(), savedMsg);
+
+                        // [추가] 비동기 요약 완료 후에도 제목 업데이트 트리거
+                        chatRoomRepository.findById(event.roomId())
+                            .flatMap(room -> {
+                                if (isNewChatTitle(room.getTitle())) {
+                                    log.info("[Title] 비동기 작업 완료 후 제목 업데이트 트리거");
+                                    return handleFirstInteraction(new ChatFirstInteractedEvent(
+                                        event.roomId(), event.userId(), event.prompt(), result, event.language()
+                                    ));
+                                }
+                                return Mono.empty();
+                            })
+                            .subscribe();
                     })
                     .then(Mono.defer(() -> {
                         // 2. Action 상태 업데이트 (IN_PROGRESS -> SUCCESS)
@@ -109,6 +123,12 @@ public class ChatEventListener {
                 log.error("이메일 비동기 요약 처리 중 에러", e);
                 sseBroadcaster.sendError(event.userId(), "이메일 요약 중 오류가 발생했습니다.");
             });
+    }
+
+    private boolean isNewChatTitle(String title) {
+        if (title == null) return true;
+        String trimmed = title.trim();
+        return java.util.List.of("새로운 대화", "New Conversation", "新しい対話", "Cuộc trò chuyện mới").contains(trimmed);
     }
 
     @EventListener

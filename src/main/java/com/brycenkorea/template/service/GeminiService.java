@@ -71,14 +71,14 @@ public class GeminiService {
                         .thenMany(Flux.defer(() -> {
                             // 4. 사용자에게 즉시 반환할 안내 메시지 생성 (PromptResponse 형식)
                             String infoMsg = ChatPromptUtil.getEmailSummaryInfoMsg(language);
-                            
+                        
                             // AI 응답으로 DB에 저장 (나중에 결과가 오면 이 메시지를 업데이트함)
                             return saveChatMessage(roomUuid, "ASSISTANT", infoMsg)
                                 .flatMapMany(savedMsg -> {
                                     // 3. 비동기 처리 이벤트 발행 (저장된 메시지 ID 포함)
                                     eventPublisher.publishEvent(new EmailSummaryEvent(prompt, roomUuid, savedMsg.getMessageId(), auth.getPrincipal(), language, sop, auth));
-                                    
-                                    // 제목 요약 체크 및 이벤트 발행
+                                
+                                    // 제목 요약 체크 및 이벤트 발행 (infoMsg를 AI 응답으로 사용)
                                     return checkAndTriggerTitle(roomUuid, auth.getPrincipal(), prompt, infoMsg, language)
                                         .thenMany(Flux.just(new PromptResponse(infoMsg, savedMsg.getMessageId(), true)));
                                 });
@@ -286,6 +286,7 @@ public class GeminiService {
                 // 공백이나 대소문자 문제일 수 있으므로 trim()과 equals 처리 주의
                 String currentTitle = room.getTitle() != null ? room.getTitle().trim() : "";
                 if (isNewChatTitle(currentTitle)) {
+                    log.info("[Title] 제목 업데이트 조건 충족 (현재: '{}')", currentTitle);
                     eventPublisher.publishEvent(new ChatFirstInteractedEvent(roomUuid, userId, userMsg, aiMsg, language));
                 }
                 return Mono.empty();
@@ -294,7 +295,9 @@ public class GeminiService {
             .then();
     }
 
-    private boolean isNewChatTitle(String title) {
-        return List.of("새로운 대화", "New Conversation", "新しい対話", "Cuộc trò chuyện mới").contains(title);
+    public boolean isNewChatTitle(String title) {
+        if (title == null) return true;
+        String trimmed = title.trim();
+        return List.of("새로운 대화", "New Conversation", "新しい対話", "Cuộc trò chuyện mới").contains(trimmed);
     }
 }

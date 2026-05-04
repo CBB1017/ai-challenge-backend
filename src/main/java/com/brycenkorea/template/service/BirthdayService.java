@@ -2,6 +2,8 @@ package com.brycenkorea.template.service;
 
 import com.brycenkorea.template.dto.response.CrawlerBirthdayResponse;
 import com.brycenkorea.template.dto.response.BirthdayResponse;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -19,6 +21,8 @@ import java.util.List;
 public class BirthdayService {
     private final WebClient pythonCrawlerWebClient;
     private final ReactiveRedisTemplate<String, Object> reactiveRedisTemplate;
+    private final SseBroadcaster sseBroadcaster;
+    private final JsonMapper jsonMapper;
 
     private static final String BIRTHDAY_KEY = "birthday:list";
 
@@ -26,6 +30,14 @@ public class BirthdayService {
      * Python 크롤러를 호출하여 생일자 정보를 가져와 Redis에 저장합니다.
      */
     public Mono<Void> fetchAndSaveBirthdays() {
+        return fetchAndSaveBirthdays(false);
+    }
+
+    /**
+     * Python 크롤러를 호출하여 생일자 정보를 가져와 Redis에 저장합니다.
+     * @param shouldNotify SSE 알림 전송 여부
+     */
+    public Mono<Void> fetchAndSaveBirthdays(boolean shouldNotify) {
         return pythonCrawlerWebClient.post()
             .uri("/crawling/birthday")
             .retrieve()
@@ -36,7 +48,13 @@ public class BirthdayService {
             .bodyToMono(CrawlerBirthdayResponse.class)
             .flatMap(res -> {
                 if ("success".equals(res.status())) {
-                    return reactiveRedisTemplate.opsForValue().set(BIRTHDAY_KEY, res.data()).then();
+                    return reactiveRedisTemplate.opsForValue().set(BIRTHDAY_KEY, res.data())
+                        .doOnSuccess(v -> {
+                            if (shouldNotify) {
+                                sseBroadcaster.broadcastEvent("birthday-update", res.data());
+                            }
+                        })
+                        .then();
                 } else {
                     log.error("Failed to fetch birthdays: {}", res.message());
                     return Mono.empty();
@@ -50,16 +68,28 @@ public class BirthdayService {
      * Python 크롤러를 호출하여 생일자 정보를 가져와 Redis에 저장합니다. (JobRunr용 Blocking 버전)
      */
     public void fetchAndSaveBirthdaysBlocking() {
-        fetchAndSaveBirthdays().block();
+        fetchAndSaveBirthdays(true).block();
     }
 
     /**
      * Redis에서 생일자 정보를 가져옵니다.
      */
-    @SuppressWarnings("unchecked")
     public Mono<List<BirthdayResponse>> getBirthdays() {
         return reactiveRedisTemplate.opsForValue().get(BIRTHDAY_KEY)
-            .map(obj -> (List<BirthdayResponse>) obj)
+            .map(obj -> {
+                try {
+                    // obj가 List인 경우 각 요소를 확실하게 변환하도록 처리
+                    if (obj instanceof List<?> list) {
+                        return list.stream()
+                            .map(item -> jsonMapper.convertValue(item, BirthdayResponse.class))
+                            .toList();
+                    }
+                    return jsonMapper.convertValue(obj, new TypeReference<List<BirthdayResponse>>() {});
+                } catch (Exception e) {
+                    log.error("생일자 데이터 변환 중 오류 발생", e);
+                    return Collections.<BirthdayResponse>emptyList();
+                }
+            })
             .defaultIfEmpty(Collections.emptyList());
     }
 }

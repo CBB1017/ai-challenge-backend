@@ -72,6 +72,17 @@ public class SseBroadcaster {
     }
 
     /**
+     * 모든 접속 중인 사용자에게 이벤트를 전송합니다.
+     *
+     * @param eventName 이벤트 이름
+     * @param data 전송할 데이터 객체
+     */
+    public void broadcastEvent(String eventName, Object data) {
+        log.debug("SSE 브로드캐스트 전송: event={}", eventName);
+        userSinks.keySet().forEach(userId -> sendEvent(userId, eventName, data));
+    }
+
+    /**
      * 이메일 요약 비동기 작업 완료 시 프론트엔드에 알림을 전송합니다.
      * 
      * @param userId 사용자 ID
