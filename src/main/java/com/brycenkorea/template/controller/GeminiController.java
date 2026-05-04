@@ -18,7 +18,7 @@ import reactor.core.publisher.Flux;
 import java.util.Objects;
 
 @RestController
-@RequestMapping("/api/ai")
+@RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor
 @Slf4j
 public class GeminiController {

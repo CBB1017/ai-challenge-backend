@@ -1,6 +1,7 @@
 package com.brycenkorea.template.filter;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -12,7 +13,7 @@ import reactor.core.publisher.Mono;
 public class CustomHeaderFilter implements WebFilter { // WebFilter 구현
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+    public @NonNull Mono<Void> filter(@NonNull ServerWebExchange exchange, WebFilterChain chain) {
         // 1. 헤더 읽기 예시
         //        String customHeader = exchange.getRequest().getHeaders().getFirst("X-Custom-Header");
         //        log.info("Custom Header received: {}", customHeader);

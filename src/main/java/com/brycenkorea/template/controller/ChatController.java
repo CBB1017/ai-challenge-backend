@@ -1,7 +1,7 @@
 package com.brycenkorea.template.controller;
 
-import com.brycenkorea.template.dto.ChatMessageResponse;
-import com.brycenkorea.template.dto.ChatRoomResponse;
+import com.brycenkorea.template.dto.response.ChatMessageResponse;
+import com.brycenkorea.template.dto.response.ChatRoomResponse;
 import com.brycenkorea.template.dto.request.ChatRoomRequest;
 import com.brycenkorea.template.entity.ChatRoom;
 import com.brycenkorea.template.repository.ChatMessageRepository;
@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
 @Slf4j
 public class ChatController {

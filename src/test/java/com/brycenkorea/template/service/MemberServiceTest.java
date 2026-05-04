@@ -1,11 +1,8 @@
 package com.brycenkorea.template.service;
 
 import com.brycenkorea.template.dto.api.ApiResultCode;
-import com.brycenkorea.template.dto.request.member.MemberRequest;
 import com.brycenkorea.template.entity.Member;
 import com.brycenkorea.template.exception.ApiException;
-import com.brycenkorea.template.mapper.mapstruct.MemberRequestMapper;
-import com.brycenkorea.template.repository.MemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/actions")
+@RequestMapping("/api/v1/actions")
 @RequiredArgsConstructor
 @Tag(name = "Action", description = "액션 로그 관련 API")
 public class ActionController {

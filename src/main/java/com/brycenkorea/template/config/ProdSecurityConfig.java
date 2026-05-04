@@ -16,7 +16,7 @@ public class ProdSecurityConfig {
     @Bean
     public SecurityWebFilterChain prodSecurityFilterChain(ServerHttpSecurity http) {
         return http.csrf(csrf -> csrf.csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse()))
-            .authorizeExchange(exchanges -> exchanges.pathMatchers("/api/member/**", "/v3/api-docs/**")
+            .authorizeExchange(exchanges -> exchanges.pathMatchers("/api/v1/member/**", "/v3/api-docs/**")
                 .permitAll()
                 .anyExchange()
                 .authenticated())

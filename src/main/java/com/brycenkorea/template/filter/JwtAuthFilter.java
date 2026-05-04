@@ -3,7 +3,6 @@ package com.brycenkorea.template.filter;
 import com.brycenkorea.template.dto.api.ApiResultCode;
 import com.brycenkorea.template.dto.api.CommonResponse;
 import com.brycenkorea.template.exception.ApiException;
-import com.brycenkorea.template.security.CustomUserDetailsService;
 import com.brycenkorea.template.security.GroupwareAuthenticationToken;
 import com.brycenkorea.template.util.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;

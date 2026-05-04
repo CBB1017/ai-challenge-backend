@@ -1,4 +1,4 @@
-package com.brycenkorea.template.dto;
+package com.brycenkorea.template.dto.response;
 
 import com.brycenkorea.template.entity.ChatMessage;
 
