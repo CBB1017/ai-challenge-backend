@@ -198,7 +198,7 @@ public class GeminiService {
     }
 
     private boolean isActionIntent(String intentId) {
-        return List.of("OVERTIME_ONEDAY", "OVERTIME_MONTHLY", "VACATION").contains(intentId);
+        return List.of("OVERTIME_ONEDAY", "OVERTIME_MONTHLY", "VACATION", "WORK_PLAN").contains(intentId);
     }
 
     /**

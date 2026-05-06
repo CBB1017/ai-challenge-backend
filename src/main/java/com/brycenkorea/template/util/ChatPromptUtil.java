@@ -80,7 +80,8 @@ public class ChatPromptUtil {
                 3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave.
                 4. EMAIL_SUMMARY: Inquiry or summary of received emails.
                 5. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (Requires RAG).
-                6. GENERAL: General conversation, or **simple inquiry/confirmation of personal information (attendance, vacation balance, commute records)** that does not yet involve a formal application/approval process.
+                6. WORK_PLAN: Requesting to establish or submit a work plan (e.g., "근무계획 수립해줘", "다음 달 근무계획 올려줘").
+                7. GENERAL: General conversation, or simple inquiry/confirmation of personal information (attendance, vacation balance, commute records) that does not yet involve a formal application/approval process.
 
                 [Important Constraints]
                 - If the user explicitly mentions "apply", "submit", or "request" for overtime or vacation, use categories 1, 2, or 3.

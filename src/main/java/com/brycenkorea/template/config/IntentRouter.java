@@ -196,6 +196,12 @@ public class IntentRouter {
             return sopRegistry.get("OVERTIME_ONEDAY");
         }
 
+        // 3. [WORK_PLAN] 근무계획 수립 관련
+        if (cleanText.contains("근무계획") || cleanText.contains("계획수립") || cleanText.contains("계획표") ||
+            cleanText.contains("workplan") || cleanText.contains("work-plan") || cleanText.contains("lịchlàmviệc")) {
+            return sopRegistry.get("WORK_PLAN");
+        }
+
         // 3. [VACATION] 휴가/연차 신청 관련
         if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") ||
             cleanText.contains("반반차") || cleanText.contains("보상휴가") || cleanText.contains("결근") ||
@@ -214,7 +220,7 @@ public class IntentRouter {
 
     // 특정 SOP로 분류되었을 때 상태를 잠그는(Set) 역할
     private Mono<AgentWorkflowSOP> applyStateAndReturn(String roomId, AgentWorkflowSOP sop) {
-        if ("OVERTIME_ONEDAY".equals(sop.intentId()) || "VACATION".equals(sop.intentId())) {
+        if ("OVERTIME_ONEDAY".equals(sop.intentId()) || "VACATION".equals(sop.intentId()) || "WORK_PLAN".equals(sop.intentId())) {
             String stateName = sop.intentId() + "_WAITING";
             log.info("🔒 [상태 잠금] {} 방에 {} 상태 부여", roomId, stateName);
             return stateManager.setState(roomId, stateName)
@@ -401,6 +407,28 @@ public class IntentRouter {
                            - **첨부파일**: [파일명](URL) (없으면 '없음' 표시)
                         --- (메일 항목이 여러 개인 경우 구분선 사용)
                      </format>
+                """, false
+            )
+        );
+
+        sopRegistry.put(
+            "WORK_PLAN", new AgentWorkflowSOP(
+                "WORK_PLAN", """
+                     당신은 현재 [근무계획 수립 워크플로우]를 수행 중입니다.
+                     이 작업은 사용자가 요청한 연/월의 근무계획을 자동으로 생성하고 **즉시 상신**하는 작업입니다.
+                     (참고: 시스템상 임시저장 시 자동으로 상신된 것으로 간주될 수 있으므로 사용자에게 사전 안내가 필수입니다.)
+                
+                     <step>
+                     1. 대화 문맥에서 사용자가 원하는 연도(year)와 월(month)을 파악하세요. 언급이 없다면 시스템의 '현재 날짜 및 시간'을 기준으로 다음 달을 기본값으로 사용합니다.
+                     2. 사용자에게 "N년 N월 근무계획을 수립하여 즉시 상신할까요?"라고 명확하게 확인을 받으세요.
+                     3. 사용자가 동의(승인)하면, 그제서야 'request_work_plan_approval' 도구를 호출하세요.
+                     4. 도구 실행 결과로 반환된 'message'를 사용자에게 전달하고, 다음 줄에 'url' 정보를 활용하여 **🔗 [결재 문서 확인](url)** 형태의 마크다운 하이퍼링크를 별도의 줄에 포함하여 안내를 종료하세요.
+                     </step>
+                
+                     <constraint>
+                     - STEP 2를 수행한 후에는 반드시 [STOP] 하고 사용자의 대답을 기다려야 합니다.
+                     - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 도구를 호출하지 마십시오.
+                     </constraint>
                 """, false
             )
         );
