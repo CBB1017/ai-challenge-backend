@@ -49,45 +49,53 @@ public class IntentRouter {
                 if ("EMPTY".equals(state)) {
                     return Mono.empty();
                 }
+
+                // 1. 고속 키워드 매칭 (즉시 전환 감지)
                 AgentWorkflowSOP fastIntent = fastMatch(userMessage);
-                if (fastIntent != null) {
-                    String expectedState = fastIntent.intentId() + "_WAITING";
-                    if (!state.startsWith(expectedState) && !"OVERTIME_MONTHLY".equals(fastIntent.intentId())) {
-                        log.info("사용자 의도 변경 감지 - 기존 상태({}) 초기화 후 {} 플로우 진입", state, fastIntent.intentId());
-                        return stateManager.clearState(roomId)
-                            .then(applyStateAndReturn(roomId, fastIntent))
-                            .map(sop -> injectSwitchNotice(sop, state));
-                    }
+                if (fastIntent != null && isDifferentIntent(state, fastIntent.intentId())) {
+                    log.info("사용자 의도 변경 감지(FastMatch) - {} -> {}", state, fastIntent.intentId());
+                    return handleIntentSwitch(roomId, state, fastIntent);
                 }
 
                 // 2. 취소 의도 파악
                 if (isCancelIntent(userMessage)) {
                     log.info("사용자 취소 요청 - 상태 초기화");
-                    return stateManager.clearState(roomId)
-                        .thenReturn(sopRegistry.get("GENERAL"));
+                    return stateManager.clearState(roomId).thenReturn(sopRegistry.get("GENERAL"));
                 }
 
-                // 3. 현재 진행 중인 다중 턴 상태 처리 (Generic WAITING 처리)
+                // 3. 진행 중인 상태 처리 (Generic WAITING 처리)
                 if (state.contains("_WAITING")) {
                     String baseIntentId = state.split(":")[0].replace("_WAITING", "");
+                    long minutes = getElapsedMinutes(stateInfo);
 
-                    AgentWorkflowSOP baseSop = sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"));
-
-                    // 신선도 체크: 30분 이상 지났다면 프롬프트에 안내 주입
-                    if (stateInfo.updatedAt() != null) {
-                        java.time.Duration duration = java.time.Duration.between(stateInfo.updatedAt(), java.time.OffsetDateTime.now());
-                        if (duration.toMinutes() >= 30) {
-                            log.info("[IntentRouter] 30분 경과 맥락 감지 - 안내 문구 주입");
-                            baseSop = injectStaleNotice(baseSop, duration.toMinutes());
-                        }
-                    }
-
-                    if (isConfirmIntent(userMessage)) {
-                        log.info("사용자 승인 확인 - {} 결재 상신 플로우로 넘기고 상태 초기화", baseIntentId);
+                    // 30분 이내이면서 명확한 승인 의도인 경우 즉시 처리
+                    if (minutes < 30 && isConfirmIntent(userMessage)) {
+                        log.info("사용자 승인 확인 - {} 결재 상신", baseIntentId);
                         return stateManager.clearState(roomId)
-                            .thenReturn(injectConfirmNotice(baseSop));
+                            .thenReturn(injectConfirmNotice(sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"))));
                     }
-                    return Mono.just(baseSop);
+
+                    // 30분이 경과했거나, 승인/취소가 아닌 입력인 경우 LLM에게 의도를 다시 물어봄
+                    log.info("[IntentRouter] 상태 유지 중 LLM 재확인 시도 (경과: {}분)", minutes);
+                    return classifyLlmAsync(userMessage)
+                        .flatMap(newSop -> {
+                            // LLM이 명확히 다른 의도로 판단한 경우 전환
+                            if (isDifferentIntent(state, newSop.intentId()) && !"GENERAL".equals(newSop.intentId())) {
+                                log.info("사용자 의도 변경 감지(LLM) - {} -> {}", state, newSop.intentId());
+                                return handleIntentSwitch(roomId, state, newSop);
+                            }
+                            
+                            // 동일 의도이거나 GENERAL인 경우 기존 맥락 유지
+                            AgentWorkflowSOP currentSop = sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"));
+                            if (minutes >= 30) {
+                                currentSop = injectStaleNotice(currentSop, minutes);
+                                // 30분 경과 후라도 승인 의도라면 상신 처리
+                                if (isConfirmIntent(userMessage)) {
+                                    return stateManager.clearState(roomId).thenReturn(injectConfirmNotice(currentSop));
+                                }
+                            }
+                            return Mono.just(currentSop);
+                        });
                 }
 
                 return Mono.just(sopRegistry.get("GENERAL"));
@@ -103,6 +111,26 @@ public class IntentRouter {
                 }
             }))
             .doOnNext(sop -> log.info("[IntentRouter] 최종 결정: {} (총 소요시간: {}ms)", sop.intentId(), (System.currentTimeMillis() - startTime)));
+    }
+
+    private boolean isDifferentIntent(String currentState, String newIntentId) {
+        if (currentState == null || newIntentId == null) return false;
+        String baseIntent = currentState.split(":")[0].replace("_WAITING", "");
+        return !baseIntent.equals(newIntentId);
+    }
+
+    private Mono<AgentWorkflowSOP> handleIntentSwitch(String roomId, String oldState, AgentWorkflowSOP newSop) {
+        if ("OVERTIME_MONTHLY".equals(newSop.intentId())) {
+            return stateManager.clearState(roomId).thenReturn(newSop); 
+        }
+        return stateManager.clearState(roomId)
+            .then(applyStateAndReturn(roomId, newSop))
+            .map(sop -> injectSwitchNotice(sop, oldState));
+    }
+
+    private long getElapsedMinutes(ChatStateManager.StateInfo stateInfo) {
+        if (stateInfo.updatedAt() == null) return 0;
+        return java.time.Duration.between(stateInfo.updatedAt(), java.time.OffsetDateTime.now()).toMinutes();
     }
 
     // 승인 시 메인 LLM에게 즉시 실행 지침을 주입하여 결정 속도 향상
