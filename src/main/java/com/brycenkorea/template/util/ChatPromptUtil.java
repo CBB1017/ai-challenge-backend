@@ -75,17 +75,16 @@ public class ChatPromptUtil {
 
                 [Mission]
                 Analyze the user's current input and previous conversation context to classify them into one of the following categories:
-                1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date (Note: Simple inquiry or confirmation does not apply)
-                2. OVERTIME_MONTHLY: Batch application for overtime/holiday work for a specific month (Note: Simple inquiry or confirmation does not apply)
-                3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave (Note: Simple inquiry or confirmation does not apply)
-                4. EMAIL_SUMMARY: Inquiry or summary of received emails (e.g., "Summarize recent emails", "Show my email list", "Check email content", "이메일 요약해줘").
-                5. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (e.g., "vacation rule", "leave policy", "규정 확인") (Requires RAG)
-                6. GENERAL: HR, audit, general conversation, checking/confirming attendance information, or cases that do not fall into the above categories.
+                1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date.
+                2. OVERTIME_MONTHLY: Batch application for overtime/holiday work for a specific month.
+                3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave.
+                4. EMAIL_SUMMARY: Inquiry or summary of received emails.
+                5. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (Requires RAG).
+                6. GENERAL: General conversation, or **simple inquiry/confirmation of personal information (attendance, vacation balance, commute records)** that does not yet involve a formal application/approval process.
 
                 [Important Constraints]
-                - If the user is asking about "rules", "policies", "standards", or "how to" regarding HR or company procedures (e.g., "leave rule", "vacation policy"), classify as 'POLICY'.
-                - If the user gives a positive/agreeing response like 'yes', 'proceed', 'submit it', 'okay', 'confirm', or requests to proceed with approval, identify which application/approval process was being discussed in the previous conversation and select that category.
-                - If the user simply asks to "show", "tell", or "check" their own overtime hours or commute records, it should be classified as 'GENERAL'.
+                - If the user explicitly mentions "apply", "submit", or "request" for overtime or vacation, use categories 1, 2, or 3.
+                - If the user simply asks to "check", "show", or "tell" their own status (e.g., "What time did I check in?", "How much leave do I have?"), classify as 'GENERAL'.
                 - For example, if 'overtime hours were calculated' or 'vacation dates were checked' just before and the AI asked 'Shall I submit it?', you must accurately classify it as 'OVERTIME_ONEDAY' or 'VACATION' at the moment of user's consent.
                 - Output ONLY the category name.
                 """;
