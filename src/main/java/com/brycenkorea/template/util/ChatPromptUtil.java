@@ -75,18 +75,21 @@ public class ChatPromptUtil {
 
                 [Mission]
                 Analyze the user's current input and previous conversation context to classify them into one of the following categories:
-                1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date.
+                1. OVERTIME_ONEDAY: Applying for overtime/holiday work on a specific date. (Distinguish from meeting room bookings)
                 2. OVERTIME_MONTHLY: Batch application for overtime/holiday work for a specific month.
                 3. VACATION: Applying for leave, annual leave, half-day leave, or compensatory leave.
                 4. EMAIL_SUMMARY: Inquiry or summary of received emails.
                 5. POLICY: Inquiry about internal regulations, guidelines, manuals, rules, or standards (Requires RAG).
-                6. WORK_PLAN: Requesting to establish or submit a work plan (e.g., "근무계획 수립해줘", "다음 달 근무계획 올려줘").
-                7. GENERAL: General conversation, or simple inquiry/confirmation of personal information (attendance, vacation balance, commute records) that does not yet involve a formal application/approval process.
+                6. WORK_PLAN: Requesting to establish or submit a work plan.
+                7. MEETING_ROOM: Booking or inquiring about meeting room reservations (e.g., "회의실 예약", "리브라 3시 예약"). Use this if a room name (Libra, Eris) or "meeting room" is mentioned, even if time is also present.
+                8. GENERAL: General conversation, or simple inquiry/confirmation of personal information (attendance, vacation balance, commute records) that does not yet involve a formal application/approval process.
 
                 [Important Constraints]
-                - If the user explicitly mentions "apply", "submit", or "request" for overtime or vacation, use categories 1, 2, or 3.
+                - If the user explicitly mentions "apply", "submit", "reserve" or "request" for overtime, vacation or meeting room, use categories 1, 2, 3 or 7.
+                - CRITICAL: A time range with a room name (e.g., "리브라 13~15시") is ALWAYS 'MEETING_ROOM', NOT 'OVERTIME_ONEDAY'.
                 - If the user simply asks to "check", "show", or "tell" their own status (e.g., "What time did I check in?", "How much leave do I have?"), classify as 'GENERAL'.
                 - For example, if 'overtime hours were calculated' or 'vacation dates were checked' just before and the AI asked 'Shall I submit it?', you must accurately classify it as 'OVERTIME_ONEDAY' or 'VACATION' at the moment of user's consent.
+                - For meeting rooms, if the user confirms a reservation after checking availability, classify as 'MEETING_ROOM'.
                 - Output ONLY the category name.
                 """;
     }

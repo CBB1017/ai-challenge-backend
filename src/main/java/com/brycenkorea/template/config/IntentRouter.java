@@ -79,7 +79,7 @@ public class IntentRouter {
                     log.info("[IntentRouter] 상태 유지 중 LLM 재확인 시도 (경과: {}분)", minutes);
                     return classifyLlmAsync(userMessage)
                         .flatMap(newSop -> {
-                            // LLM이 명확히 다른 의도로 판단한 경우 전환
+                            // LLM이 명확히 다른 의도로 판단한 경우에만 전환 (단, GENERAL은 무시하고 기존 맥락 유지)
                             if (isDifferentIntent(state, newSop.intentId()) && !"GENERAL".equals(newSop.intentId())) {
                                 log.info("사용자 의도 변경 감지(LLM) - {} -> {}", state, newSop.intentId());
                                 return handleIntentSwitch(roomId, state, newSop);
@@ -215,12 +215,21 @@ public class IntentRouter {
             return sopRegistry.get("VACATION");
         }
 
+        // 4. [MEETING_ROOM] 회의실 예약 관련 (주요 회의실명 포함)
+        if (cleanText.contains("회의실") || cleanText.contains("예약") || cleanText.contains("리브라") || cleanText.contains("에리스") || 
+            cleanText.contains("meetingroom") || cleanText.contains("reserve") || cleanText.contains("reservation") ||
+            cleanText.contains("libra") || cleanText.contains("eris") ||
+            cleanText.contains("会议室") || cleanText.contains("預約") || cleanText.contains("会議室") || 
+            cleanText.contains("phònghọp") || cleanText.contains("đặtchỗ")) {
+            return sopRegistry.get("MEETING_ROOM");
+        }
+
         return null;
     }
 
     // 특정 SOP로 분류되었을 때 상태를 잠그는(Set) 역할
     private Mono<AgentWorkflowSOP> applyStateAndReturn(String roomId, AgentWorkflowSOP sop) {
-        if ("OVERTIME_ONEDAY".equals(sop.intentId()) || "VACATION".equals(sop.intentId()) || "WORK_PLAN".equals(sop.intentId())) {
+        if ("OVERTIME_ONEDAY".equals(sop.intentId()) || "VACATION".equals(sop.intentId()) || "WORK_PLAN".equals(sop.intentId()) || "MEETING_ROOM".equals(sop.intentId())) {
             String stateName = sop.intentId() + "_WAITING";
             log.info("🔒 [상태 잠금] {} 방에 {} 상태 부여", roomId, stateName);
             return stateManager.setState(roomId, stateName)
@@ -429,6 +438,66 @@ public class IntentRouter {
                      - STEP 2를 수행한 후에는 반드시 [STOP] 하고 사용자의 대답을 기다려야 합니다.
                      - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 도구를 호출하지 마십시오.
                      </constraint>
+                """, false
+            )
+        );
+
+        sopRegistry.put(
+            "MEETING_ROOM", new AgentWorkflowSOP(
+                "MEETING_ROOM", """
+                     당신은 현재 [회의실 예약 워크플로우]를 수행 중입니다.
+                     아래의 지침(<instruction>)과 포맷(<format>)을 엄격하게 준수하세요.
+                
+                     <instruction>
+                      1. **정보 수집**: 예약 날짜(reservation_date), 회의실명(room_name), 시작/종료 시간(start_time, end_time), 회의 제목(title)은 **필수 항목**입니다.
+                         - 만약 하나라도 누락되었다면, 아래의 **[정보 요청 템플릿]**을 사용하여 사용자에게 정중히 요청하세요.
+                         - 인원수(people_count)와 시작/종료 날짜와 상세내용(description)은 **선택 항목**임을 함께 안내하세요.
+                      2. **현황 확인**: 필수 정보가 모두 수집되면 반드시 'fetch_meeting_room_reservations' 도구를 호출하여 중복 여부를 확인합니다.
+                      3. **예약 가능 시**: 아래의 **[최종 확인 템플릿]**을 사용하여 사용자에게 예약 의사를 묻고 [STOP] 합니다.
+                      4. **중복 발생 시 처리**:
+                         - 만약 요청한 시간대(또는 기간 중 특정 날짜)에 이미 예약이 있다면, **절대로 그냥 "예약이 어렵다"고만 하지 마십시오.**
+                         - 반드시 **'[날짜] [시작시간~종료시간] 회의제목 (예약자)'** 형식으로 기존 예약 리스트를 모두 보여주어야 합니다.
+                         - 그 아래에 해당 날짜에 예약 가능한 빈 시간대 리스트를 정확히 계산하여 안내하고, 다른 시간을 선택할지 물어본 후 [STOP] 합니다.
+                      5. **예약 실행**: 사용자가 승인하면 'book_meeting_room' 도구를 호출합니다. 이때 사용자가 제목을 말하지 않았다면 절대로 임의로 '회의' 등으로 입력하지 말고 반드시 제목을 물어봐야 합니다.
+                      6. **완료 안내**: 예약 성공 시 **[예약 완료 템플릿]**에 맞춰 결과를 출력합니다.
+                     </instruction>
+
+                     <instruction>
+                      - **날짜 계산 철저**: 시스템 정보(`currentDateTime`, `currentDayOfWeek`)를 최우선으로 신뢰하세요.
+                        - 예: 시스템이 5월 10일 일요일이라고 하면, 내일은 반드시 5월 11일 월요일입니다. 요일을 임의로 추측하거나 잘못된 달력을 참조하지 마십시오.
+                      - 사용자가 "14:50 이후"와 같이 범위를 지정하면, 현재 예약 현황을 보고 마지막 예약 종료 시각부터 24:00까지의 모든 빈 공간을 정확히 계산해야 합니다.
+                      - 도구에서 반환된 예약 리스트의 시작/종료 시간을 보고, 겹치지 않는 구간을 수학적으로 꼼꼼히 체크하세요. 추측하여 "예약이 어렵다"고 답하지 마십시오.
+                      - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 'book_meeting_room' 도구를 호출하지 마십시오.
+                     </instruction>
+
+                     <format>
+                     [정보 요청 템플릿]
+                     회의실 예약을 위해 아래 정보를 입력해 주세요.
+                     - **회의실 이름**: (필수)
+                     - **예약 날짜**: (필수)
+                     - **시간 (시작~종료)**: (필수)
+                     - **회의 제목**: (필수)
+                     ---
+                     * (선택) 인원수, 상세 내용
+
+                     [최종 확인 템플릿]
+                     조회 결과, 해당 시간에 예약이 가능합니다. 이 내용으로 예약을 진행할까요?
+                     - **회의실**: {room_name}
+                     - **일시**: {start_date}~{end_date} {start_time} ~ {end_time}
+                     - **제목**: {title}
+                     - **인원**: {people_count} (선택)
+                     - **상세 내용**: {description} (선택)
+
+                     [예약 완료 템플릿]
+                     ✅ **회의실 예약이 완료되었습니다.**
+                     - **회의실**: {room_name}
+                     - **일시**: {start_date}~{end_date} {start_time} ~ {end_time}
+                     - **제목**: {title}
+                     - **인원**: {people_count}
+                     - **상세 내용**: {description}
+
+                     🔗 **[예약 내역 확인](url)
+                     </format>
                 """, false
             )
         );
