@@ -50,7 +50,8 @@ public class ChatEventListener {
                     .toolContext(java.util.Map.of(
                         "userId", event.userId(),
                         "userDept", event.auth().getDepartment(),
-                        "userName", event.auth().getName()
+                        "userName", event.auth().getName(),
+                        "roomId", event.roomId().toString()
                     ))
                     .call()
                     .content();

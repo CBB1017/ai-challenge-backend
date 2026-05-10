@@ -134,7 +134,8 @@ public class GeminiService {
             .toolContext(Map.of(
                 "userId", Objects.requireNonNull(auth.getPrincipal()),
                 "userDept", auth.getDepartment(),
-                "userName", auth.getName()
+                "userName", auth.getName(),
+                "roomId", roomId
             ))
             .advisors(a -> a
                 .param(ChatMemory.CONVERSATION_ID, roomId)
