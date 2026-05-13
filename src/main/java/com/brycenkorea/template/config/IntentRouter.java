@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,14 +22,106 @@ public class IntentRouter {
     private final ChatClient routerClient;
     private final ChatStateManager stateManager;
     private final Map<String, AgentWorkflowSOP> sopRegistry = new ConcurrentHashMap<>();
+    private final List<RouteRule> fastMatchRules = List.of(
+        new RouteRule("EMAIL_SUMMARY",
+            List.of(
+                "메일", "이메일", "전자우편", "수신함",
+                "email", "mail", "inbox",
+                "メール", "Eメール", "受信箱",
+                "email", "thư", "thu", "hộp thư", "hop thu", "hộp thư đến", "hop thu den"
+            ),
+            List.of(
+                "요약", "보여줘", "목록", "조회", "확인", "수신", "읽어", "검색", "알려줘",
+                "summary", "summarize", "show", "list", "view", "check", "read", "search", "received",
+                "要約", "見せて", "一覧", "確認", "受信", "読む", "検索",
+                "tóm tắt", "tom tat", "hiển thị", "hien thi", "xem", "danh sách", "danh sach", "kiểm tra", "kiem tra", "nhận", "nhan"
+            )),
+        new RouteRule("POLICY",
+            List.of(
+                "규정", "사규", "지침", "매뉴얼", "가이드", "조항",
+                "policy", "regulation", "manual", "guide", "rule", "standard", "howto", "instruction", "procedure",
+                "規定", "社規", "規則", "指針", "マニュアル", "ガイド", "手順",
+                "quy định", "quy dinh", "chính sách", "chinh sach", "sổ tay", "so tay", "hướng dẫn", "huong dan", "nội quy", "noi quy", "quy trình", "quy trinh"
+            ),
+            List.of()),
+        new RouteRule("OVERTIME_MONTHLY",
+            List.of(
+                "야근", "연장근무", "초과근무", "ot",
+                "overtime", "extra work", "night shift", "working late",
+                "残業", "時間外勤務", "夜勤",
+                "làm thêm", "lam them", "tăng ca", "tang ca"
+            ),
+            List.of(
+                "이번달", "이달", "전월", "지난달", "월간", "월별", "신청", "상신", "등록",
+                "month", "monthly", "apply", "submit", "request", "register",
+                "今月", "先月", "月", "申請", "提出", "登録",
+                "tháng", "thang", "hàng tháng", "hang thang", "đăng ký", "dang ky", "nộp", "nop", "xin"
+            )),
+        new RouteRule("OVERTIME_ONEDAY",
+            List.of(
+                "야근", "연장근무", "초과근무", "ot",
+                "overtime", "extra work", "night shift", "working late",
+                "残業", "時間外勤務", "夜勤",
+                "làm thêm", "lam them", "tăng ca", "tang ca"
+            ),
+            List.of(
+                "신청", "상신", "등록", "할래", "해줘",
+                "apply", "submit", "request", "register",
+                "申請", "提出", "登録",
+                "đăng ký", "dang ky", "nộp", "nop", "xin"
+            )),
+        new RouteRule("WORK_PLAN",
+            List.of(
+                "근무계획", "계획상신", "계획서",
+                "work plan", "workplan",
+                "勤務計画", "勤務表", "計画申請",
+                "kế hoạch làm việc", "ke hoach lam viec", "lịch làm việc", "lich lam viec"
+            ),
+            List.of(
+                "상신", "신청", "등록", "작성", "제출",
+                "apply", "submit", "request", "register", "create",
+                "申請", "提出", "登録", "作成",
+                "đăng ký", "dang ky", "nộp", "nop", "tạo", "tao", "lập", "lap"
+            )),
+        new RouteRule("VACATION",
+            List.of(
+                "휴가", "연차", "반차", "반반차", "보상휴가", "결근", "병가", "조퇴", "경조휴가",
+                "vacation", "annual leave", "half day", "leave", "holiday", "day off", "sick leave", "absence", "early leave",
+                "休暇", "有給", "半休", "病休", "早退", "欠勤",
+                "nghỉ", "nghi", "nghỉ phép", "nghi phep", "phép", "phep", "nghỉ bệnh", "nghi benh", "nửa ngày", "nua ngay"
+            ),
+            List.of(
+                "신청", "상신", "쓸래", "등록", "사용", "가고싶", "내고싶",
+                "apply", "submit", "request", "register", "use", "take",
+                "申請", "提出", "登録", "使いたい", "取りたい", "出したい",
+                "đăng ký", "dang ky", "xin", "nộp", "nop", "sử dụng", "su dung", "muốn nghỉ", "muon nghi"
+            )),
+        new RouteRule("MEETING_ROOM",
+            List.of(
+                "회의실", "미팅룸", "리브라", "에리스",
+                "meeting room", "meetingroom", "conference room", "libra", "eris",
+                "会議室", "ミーティングルーム", "リブラ", "エリス",
+                "phòng họp", "phong hop", "phòng họp libra", "phong hop libra", "phòng họp eris", "phong hop eris"
+            ),
+            List.of(
+                "예약", "잡아줘", "대여", "빈방", "확인", "조회", "빌려",
+                "reserve", "reservation", "book", "rent", "available", "vacancy", "check",
+                "予約", "借りる", "空き", "空いて", "空室", "確認",
+                "đặt", "dat", "đặt phòng", "dat phong", "đăng ký", "dang ky", "còn trống", "con trong", "trống", "trong", "mượn", "muon", "thuê", "thue"
+            ))
+    );
 
     public IntentRouter(ChatClient.Builder builder, ChatStateManager stateManager) {
         // 라우터 전용으로 가볍고 빠른 모델을 세팅합니다.
         this.routerClient = builder.defaultSystem(ChatPromptUtil.getIntentRouterSystemPrompt()).build();
         this.stateManager = stateManager;
 
-        // TODO: 실제 환경에서는 DB나 YAML에서 읽어와 Registry를 초기화합니다.
         initSOPRegistry();
+    }
+
+    // 1차 고속 라우터: 키워드 기반 분류 (지연 방지를 위해 최대한 여기서 걸러야 함)
+    private static String cleanKeyword(String text) {
+        return text.replaceAll("[\\s&,]+", "").toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -68,23 +162,20 @@ public class IntentRouter {
                     String baseIntentId = state.split(":")[0].replace("_WAITING", "");
                     long minutes = getElapsedMinutes(stateInfo);
 
-                    // 30분 이내이면서 명확한 승인 의도인 경우 즉시 처리
                     if (minutes < 30 && isConfirmIntent(userMessage)) {
                         log.info("사용자 승인 확인 - {} 결재 상신", baseIntentId);
                         return stateManager.clearState(roomId)
                             .thenReturn(injectConfirmNotice(sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"))));
                     }
 
-                    // 30분이 경과했거나, 승인/취소가 아닌 입력인 경우 LLM에게 의도를 다시 물어봄
                     log.info("[IntentRouter] 상태 유지 중 LLM 재확인 시도 (경과: {}분)", minutes);
                     return classifyLlmAsync(userMessage)
                         .flatMap(newSop -> {
-                            // LLM이 명확히 다른 의도로 판단한 경우에만 전환 (단, GENERAL은 무시하고 기존 맥락 유지)
                             if (isDifferentIntent(state, newSop.intentId()) && !"GENERAL".equals(newSop.intentId())) {
                                 log.info("사용자 의도 변경 감지(LLM) - {} -> {}", state, newSop.intentId());
                                 return handleIntentSwitch(roomId, state, newSop);
                             }
-                            
+
                             // 동일 의도이거나 GENERAL인 경우 기존 맥락 유지
                             AgentWorkflowSOP currentSop = sopRegistry.getOrDefault(baseIntentId, sopRegistry.get("GENERAL"));
                             if (minutes >= 30) {
@@ -121,7 +212,7 @@ public class IntentRouter {
 
     private Mono<AgentWorkflowSOP> handleIntentSwitch(String roomId, String oldState, AgentWorkflowSOP newSop) {
         if ("OVERTIME_MONTHLY".equals(newSop.intentId())) {
-            return stateManager.clearState(roomId).thenReturn(newSop); 
+            return stateManager.clearState(roomId).thenReturn(newSop);
         }
         return stateManager.clearState(roomId)
             .then(applyStateAndReturn(roomId, newSop))
@@ -139,89 +230,16 @@ public class IntentRouter {
         return new AgentWorkflowSOP(sop.intentId(), sop.rules() + confirmGuide, sop.requiresRag());
     }
 
-    // 1차 고속 라우터: 키워드 기반 분류 (지연 방지를 위해 최대한 여기서 걸러야 함)
     private AgentWorkflowSOP fastMatch(String text) {
-        String cleanText = text.replaceAll("[\\s&,]+", "").toLowerCase();
+        String cleanText = cleanKeyword(text);
 
-        // 긍정형 대답은 키워드 매칭에서 제외하여 WAITING 로직을 타게 함
+        // 긍정형 대답은 기존 WAITING 확인 로직에서 처리되도록 fast match 대상에서 제외한다.
         if (isConfirmIntent(text)) return null;
 
-        // 1. [EMAIL_SUMMARY] 이메일 요약/조회 관련
-        if (cleanText.contains("이메일") || cleanText.contains("메일") || cleanText.contains("전자우편") || cleanText.contains("수신함") ||
-            cleanText.contains("email") || cleanText.contains("mail") || cleanText.contains("inbox") ||
-            cleanText.contains("邮件") || cleanText.contains("邮箱") || cleanText.contains("收件箱") ||
-            cleanText.contains("メール") || cleanText.contains("受信箱") ||
-            cleanText.contains("thưđiệntử") || cleanText.contains("hộpthư")) {
-            return sopRegistry.get("EMAIL_SUMMARY");
-        }
-
-        // 2. [POLICY] 사내 규정/지침 관련 (가장 포괄적이며 우선순위 높음)
-        if (cleanText.contains("규정") || cleanText.contains("사규") || cleanText.contains("지침") || 
-            cleanText.contains("매뉴얼") || cleanText.contains("가이드") || cleanText.contains("조항") ||
-            cleanText.contains("policy") || cleanText.contains("regulation") || cleanText.contains("manual") || 
-            cleanText.contains("guide") || cleanText.contains("rule") || cleanText.contains("standard") || 
-            cleanText.contains("howto") || cleanText.contains("instruction") || cleanText.contains("procedure") ||
-            cleanText.contains("规定") || cleanText.contains("規定") || cleanText.contains("マニュアル") || 
-            cleanText.contains("ルール") || cleanText.contains("quyđịnh") || cleanText.contains("hướngdẫn")) {
-            return sopRegistry.get("POLICY");
-        }
-
-        // "조회", "보여줘", "알려줘", "확인" 등 단순 조회성 키워드가 포함된 경우 (POLICY가 아닐 때만 제외)
-        if (cleanText.contains("조회") || cleanText.contains("보여줘") || cleanText.contains("알려줘") ||
-            cleanText.contains("얼마나") || cleanText.contains("확인해") || cleanText.contains("궁금") ||
-            cleanText.contains("show") || cleanText.contains("tell") || cleanText.contains("check") ||
-            cleanText.contains("howmany") || cleanText.contains("verify") || cleanText.contains("view") ||
-            cleanText.contains("見せて") || cleanText.contains("教えて") || cleanText.contains("確認") ||
-            cleanText.contains("xem") || cleanText.contains("cho") || cleanText.contains("biết")) {
-            return null;
-        }
-
-        // 2. [OVERTIME] 잔업/특근 신청 관련
-        if (cleanText.contains("ot") || cleanText.contains("잔업") || cleanText.contains("특근") ||
-            cleanText.contains("야근") || cleanText.contains("초과근무") || cleanText.contains("연장근무") ||
-            cleanText.contains("overtime") || cleanText.contains("extrawork") || cleanText.contains("nightshift") || 
-            cleanText.contains("workinglate") || cleanText.contains("加班") || cleanText.contains("殘業") || cleanText.contains("残業") || 
-            cleanText.contains("làmthêm") || cleanText.contains("tăngca")) {
-
-            if (cleanText.contains("월") || cleanText.contains("이번달") || cleanText.contains("이전달") || cleanText.contains("저번달") || cleanText.contains("지난달") ||
-                cleanText.contains("month") || cleanText.contains("月") || cleanText.contains("今月") || cleanText.contains("tháng")) {
-                if (cleanText.contains("신청") || cleanText.contains("상신") ||
-                    cleanText.contains("apply") || cleanText.contains("submit") ||
-                    cleanText.contains("申请") || cleanText.contains("提交") ||
-                    cleanText.contains("申請") || cleanText.contains("đăngký")) {
-                    return sopRegistry.get("OVERTIME_MONTHLY");
-                }
-                return null;
+        for (RouteRule rule : fastMatchRules) {
+            if (rule.isMatch(cleanText)) {
+                return sopRegistry.get(rule.intentId());
             }
-            return sopRegistry.get("OVERTIME_ONEDAY");
-        }
-
-        // 3. [WORK_PLAN] 근무계획 수립 관련
-        if (cleanText.contains("근무계획") || cleanText.contains("계획수립") || cleanText.contains("계획표") ||
-            cleanText.contains("workplan") || cleanText.contains("work-plan") || cleanText.contains("lịchlàmviệc")) {
-            return sopRegistry.get("WORK_PLAN");
-        }
-
-        // 3. [VACATION] 휴가/연차 신청 관련
-        if (cleanText.contains("휴가") || cleanText.contains("연차") || cleanText.contains("반차") ||
-            cleanText.contains("반반차") || cleanText.contains("보상휴가") || cleanText.contains("결근") ||
-            cleanText.contains("병가") || cleanText.contains("조퇴") || cleanText.contains("경조사") ||
-            cleanText.contains("vacation") || cleanText.contains("leave") || cleanText.contains("holiday") || 
-            cleanText.contains("dayoff") || cleanText.contains("off") || cleanText.contains("break") || 
-            cleanText.contains("sick") || cleanText.contains("absence") ||
-            cleanText.contains("请假") || cleanText.contains("休假") ||
-            cleanText.contains("休暇") || cleanText.contains("有休") || cleanText.contains("休み") ||
-            cleanText.contains("nghỉ") || cleanText.contains("vắngmặt")) {
-            return sopRegistry.get("VACATION");
-        }
-
-        // 4. [MEETING_ROOM] 회의실 예약 관련 (주요 회의실명 포함)
-        if (cleanText.contains("회의실") || cleanText.contains("예약") || cleanText.contains("리브라") || cleanText.contains("에리스") || 
-            cleanText.contains("meetingroom") || cleanText.contains("reserve") || cleanText.contains("reservation") ||
-            cleanText.contains("libra") || cleanText.contains("eris") ||
-            cleanText.contains("会议室") || cleanText.contains("預約") || cleanText.contains("会議室") || 
-            cleanText.contains("phònghọp") || cleanText.contains("đặtchỗ")) {
-            return sopRegistry.get("MEETING_ROOM");
         }
 
         return null;
@@ -258,13 +276,12 @@ public class IntentRouter {
         return new AgentWorkflowSOP(sop.intentId(), sop.rules() + notice, sop.requiresRag());
     }
 
-    // LLM 분류 비동기 처리
     private Mono<AgentWorkflowSOP> classifyLlmAsync(String userMessage) {
         return Mono.fromCallable(() -> classifyLlm(userMessage))
             .subscribeOn(Schedulers.boundedElastic())
-            .timeout(java.time.Duration.ofSeconds(4)) // 타임아웃을 4초로 확장
+            .timeout(java.time.Duration.ofSeconds(3)) // 응답 속도 향상으로 타임아웃 단축
             .onErrorResume(e -> {
-                log.error("[IntentRouter] LLM 분류 실패 또는 지연 (결과: GENERAL): {}", e.getMessage());
+                log.error("[IntentRouter] LLM 분류 실패 (결과: GENERAL): {}", e.getMessage());
                 return Mono.just(sopRegistry.get("GENERAL"));
             });
     }
@@ -393,23 +410,23 @@ public class IntentRouter {
                          - 첨부파일 URL은 반드시 하이퍼링크 형식([파일명](URL))으로 표현하세요.
                          - **항목 간에는 줄바꿈을 2번 적용하여 시각적 여백을 확보하고, 상세 정보는 들여쓰기를 적용하세요.**
                       </instruction>
-
+                
                       <format>
                       의도에 따라 가독성 좋은 마크다운 형식을 사용하세요.
-
+                
                       [결과 출력 형식]
                       - 단일/여러 메일 요약:
                         ### 📝 이메일 요약 결과 (총 N건)
-
+                
                         1. **제목**: [원본 제목]
                            - **보낸이/시간**: [이름] / [시간]
                            - **요약**:
                              > [핵심 내용 요약 - 가독성을 위해 인용구와 들여쓰기 적용]
                            - **첨부파일**: [파일명](URL) (없으면 '없음' 표시)
-
+                
                       - 메일 목록 조회:
                         ### 📧 이메일 목록 (총 N건)
-
+                
                         1. **[시간]** [원본 제목]
                            - **보낸이**: [이름]
                            - **내용 요약(300자 내)**: [내용...]
@@ -461,7 +478,7 @@ public class IntentRouter {
                       5. **예약 실행**: 사용자가 승인하면 'book_meeting_room' 도구를 호출합니다. 이때 사용자가 제목을 말하지 않았다면 절대로 임의로 '회의' 등으로 입력하지 말고 반드시 제목을 물어봐야 합니다.
                       6. **완료 안내**: 예약 성공 시 **[예약 완료 템플릿]**에 맞춰 결과를 출력합니다.
                      </instruction>
-
+                
                      <instruction>
                       - **날짜 계산 철저**: 시스템 정보(`currentDateTime`, `currentDayOfWeek`)를 최우선으로 신뢰하세요.
                         - 예: 시스템이 5월 10일 일요일이라고 하면, 내일은 반드시 5월 11일 월요일입니다. 요일을 임의로 추측하거나 잘못된 달력을 참조하지 마십시오.
@@ -469,7 +486,7 @@ public class IntentRouter {
                       - 도구에서 반환된 예약 리스트의 시작/종료 시간을 보고, 겹치지 않는 구간을 수학적으로 꼼꼼히 체크하세요. 추측하여 "예약이 어렵다"고 답하지 마십시오.
                       - 사용자의 명시적인 '승인' 응답이 존재하기 전까지는 절대로 'book_meeting_room' 도구를 호출하지 마십시오.
                      </instruction>
-
+                
                      <format>
                      [정보 요청 템플릿]
                      회의실 예약을 위해 아래 정보를 입력해 주세요.
@@ -479,7 +496,7 @@ public class IntentRouter {
                      - **회의 제목**: (필수)
                      ---
                      * (선택) 인원수, 상세 내용
-
+                
                      [최종 확인 템플릿]
                      조회 결과, 해당 시간에 예약이 가능합니다. 이 내용으로 예약을 진행할까요?
                      - **회의실**: {room_name}
@@ -487,7 +504,7 @@ public class IntentRouter {
                      - **제목**: {title}
                      - **인원**: {people_count} (선택)
                      - **상세 내용**: {description} (선택)
-
+                
                      [예약 완료 템플릿]
                      ✅ **회의실 예약이 완료되었습니다.**
                      - **회의실**: {room_name}
@@ -495,7 +512,7 @@ public class IntentRouter {
                      - **제목**: {title}
                      - **인원**: {people_count}
                      - **상세 내용**: {description}
-
+                
                      🔗 **[예약 내역 확인](url)
                      </format>
                 """, false
@@ -503,26 +520,64 @@ public class IntentRouter {
         );
 
         sopRegistry.put("POLICY", new AgentWorkflowSOP("POLICY", "[사내 규정 답변]\n검색된 RAG 문서를 바탕으로 친절하고 정확하게 답변하세요.", true));
+
+        sopRegistry.put("SYSTEM_GUIDE", new AgentWorkflowSOP(
+            "SYSTEM_GUIDE", """
+                당신은 시스템 기능을 안내하는 가이드입니다. 사용자에게 현재 제공 중인 주요 기능을 카테고리별로 깔끔하게 정리하여 안내하세요.
+            
+                [핵심 기능 목록]
+                1. 🏢 **근태/잔업**: 출퇴근 시간 조회, 일일 연장 근무 및 월간 잔업 일괄 신청
+                2. 🏖️ **휴가/연차**: 연차 잔여량 확인, 휴가(연차, 반차, 반반차) 신청 및 결재 상신
+                3. 📧 **이메일**: 메일 목록 조회, 중요 메일 내용 요약 및 상세 보기
+                4. 📅 **회의실**: 실시간 회의실 예약 현황 조회 및 예약(리브라, 에리스 등)
+                5. ⏰ **스케줄 예약**: 특정 시간 1회성 작업 예약 또는 주기적인 반복 작업 관리
+                6. 📚 **사내 규정(RAG)**: 사규, 지침, 매뉴얼 등 사내 문서 기반 질의응답
+            
+                [응답 지침]
+                - **절대로 'MCP', 'Method 명', '도구 이름' 등 기술적인 용어를 사용자에게 노출하지 마세요.**
+                - 오직 사용자가 체감할 수 있는 '비즈니스 기능' 관점에서 설명하세요.
+                - 각 기능은 대화로 자연스럽게 요청하면 된다는 점을 강조하세요. (예: "내일 오후 반차 신청해줘", "어제 퇴근 시간 알려줘")
+                - 사용자가 궁금해하는 기능을 바로 실행해 볼 수 있도록 유도하며 대화를 마무리하세요.
+            """, false
+        ));
+
         sopRegistry.put("GENERAL", new AgentWorkflowSOP("GENERAL", """
             당신은 현재 [일반 대화 및 정보 조회 워크플로우]를 수행 중입니다.
-            사용자가 신청(신청, 상신, 등록 등)이 아닌 단순 정보를 궁금해할 경우 아래의 지침에 따라 적절한 MCP 도구를 호출하세요.
+            사용자가 특정 신청(상신) 프로세스에 진입하지 않은 상태에서 정보를 궁금해할 경우, 아래의 지침에 따라 적절한 도구를 활용하여 답변하세요.
+            
+            <capabilities>
+            1. 🏢 근태/출퇴근: 'get_team_attendance' 또는 'get_my_commute_record'를 통해 출근/퇴근 시간 및 근무 시간을 조회할 수 있습니다.
+            2. 🏖️ 휴가: 'get_vacation_balance'를 통해 잔여 연차 및 휴가 정보를 확인할 수 있습니다.
+            3. 📧 이메일: 'get_email_list_simple'을 통해 수신 이메일 목록이나 특정 메일 수신 여부를 확인할 수 있습니다.
+            4. 📅 회의실: 'fetch_meeting_room_reservations'를 통해 특정 날짜/회의실의 예약 현황을 조회할 수 있습니다.
+            5. ⏰ 스케줄: 사용자가 요청한 작업을 특정 시간에 예약하거나 반복되도록 설정할 수 있습니다.
+            6. 📚 규정: 사내 규정이나 지침에 대해 궁금해하면 RAG 기반 검색을 통해 답변할 수 있습니다.
+            </capabilities>
             
             <instruction>
-            1. 출퇴근/근태 정보 조회:
-               - 사용자가 본인의 출근 시간, 퇴근 시간, 근무 시간 등을 물어보면 'get_team_attendance' 또는 'get_my_commute_record' 도구를 사용하여 정보를 확인한 후 답변하세요.
-            2. 휴가 잔여량 조회:
-               - 사용자가 남은 연차나 휴가 일수를 물어보면 'get_vacation_balance' 도구를 호출하여 정확한 수치를 안내하세요.
-            3. 이메일 확인:
-               - 특정 이메일이 왔는지, 혹은 최근 메일 목록이 무엇인지 물어보면 'get_email_list_simple' 도구를 활용하세요.
-            4. 기타 판단:
-               - 사용자의 요청이 특정 신청(잔업, 휴가 등)으로 이어질 것 같으면, 정보를 먼저 안내한 후 "신청을 도와드릴까요?"라고 자연스럽게 제안하세요.
+            - 사용자의 질문에 가장 적합한 도구를 판단하여 즉시 호출하세요.
+            - 정보를 제공한 후에는 "관련하여 신청(신청, 예약, 상신 등)을 도와드릴까요?"와 같이 다음 단계의 액션을 자연스럽게 제안하세요.
+            - 특정 도메인(잔업, 휴가 등)의 구체적인 신청 의도가 파악되면 해당 도메인의 전문 에이전트처럼 행동하세요.
+            - **응답 시 MCP, 도구 이름, 메서드 명과 같은 기술적 용어는 절대로 노출하지 마세요.**
             </instruction>
             
             판단이 어려우면 추측하지 말고 사용자에게 추가 정보를 요청하세요.
             """, false));
     }
 
-    // Spring AI가 구조화된 출력을 위해 사용할 내부 레코드
+    private record RouteRule(String intentId, List<String> targets, List<String> actions) {
+        private RouteRule {
+            targets = targets.stream().map(IntentRouter::cleanKeyword).toList();
+            actions = actions.stream().map(IntentRouter::cleanKeyword).toList();
+        }
+
+        boolean isMatch(String text) {
+            boolean hasTarget = targets.stream().anyMatch(text::contains);
+            boolean hasAction = actions.isEmpty() || actions.stream().anyMatch(text::contains);
+            return hasTarget && hasAction;
+        }
+    }
+
     record IntentClassification(String category, double confidence) {
     }
 }

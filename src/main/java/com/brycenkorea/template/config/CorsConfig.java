@@ -17,7 +17,7 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(List.of("http://localhost:4318", "http://localhost:5173", "http://172.30.1.45:5173", "https://leia-overlearned-deprecatingly.ngrok-free.dev"));
+        config.setAllowedOrigins(List.of("http://localhost:4318", "http://localhost:5173", "http://localhost", "http://172.30.1.45:5173", "https://leia-overlearned-deprecatingly.ngrok-free.dev"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
