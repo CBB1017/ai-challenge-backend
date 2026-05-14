@@ -14,7 +14,7 @@ java {
 }
 
 ext {
-    set('springAiVersion', "2.0.0-M4")
+    set('springAiVersion', "2.0.0-M6")
 }
 
 repositories {

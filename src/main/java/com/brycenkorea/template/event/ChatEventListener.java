@@ -3,7 +3,6 @@ package com.brycenkorea.template.event;
 import com.brycenkorea.template.contants.ActionStatus;
 import com.brycenkorea.template.dto.ChatFirstInteractedEvent;
 import com.brycenkorea.template.dto.EmailSummaryEvent;
-import com.brycenkorea.template.repository.ActionRepository;
 import com.brycenkorea.template.repository.ChatMessageRepository;
 import com.brycenkorea.template.repository.ChatRoomRepository;
 import com.brycenkorea.template.service.ActionService;
@@ -12,6 +11,7 @@ import com.brycenkorea.template.util.ChatPromptUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -19,14 +19,30 @@ import reactor.core.scheduler.Schedulers;
 
 @Component
 @Slf4j
-@RequiredArgsConstructor
 public class ChatEventListener {
 
     private final ChatClient baseChatClient;
+    private final ChatClient statelessChatClient;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ActionService actionService;
     private final SseBroadcaster sseBroadcaster;
+
+    public ChatEventListener(
+        @org.springframework.beans.factory.annotation.Qualifier("baseChatClient") ChatClient baseChatClient,
+        @org.springframework.beans.factory.annotation.Qualifier("statelessChatClient") ChatClient statelessChatClient,
+        ChatRoomRepository chatRoomRepository,
+        ChatMessageRepository chatMessageRepository,
+        ActionService actionService,
+        SseBroadcaster sseBroadcaster
+    ) {
+        this.baseChatClient = baseChatClient;
+        this.statelessChatClient = statelessChatClient;
+        this.chatRoomRepository = chatRoomRepository;
+        this.chatMessageRepository = chatMessageRepository;
+        this.actionService = actionService;
+        this.sseBroadcaster = sseBroadcaster;
+    }
 
     @EventListener
     public Mono<Void> handleEmailSummary(EmailSummaryEvent event) {
@@ -40,8 +56,8 @@ public class ChatEventListener {
                 // 시스템 프롬프트 구성 (SOP 룰 주입)
                 String systemPrompt = ChatPromptUtil.buildSystemPrompt(event.sop().rules(), event.language());
 
-                // AI 호출 (도구 포함)
-                return baseChatClient.prompt()
+                // AI 호출 (도구 포함, Stateless Client 사용)
+                return statelessChatClient.prompt()
                     .system(s -> s
                         .param("currentDateTime", ChatPromptUtil.getCurrentDateTime())
                         .param("currentDayOfWeek", ChatPromptUtil.getCurrentDayOfWeek(event.language()))
@@ -118,7 +134,10 @@ public class ChatEventListener {
         return Mono.fromCallable(() -> {
                 log.info("AI 요약 요청 시작...");
                 String summaryPrompt = ChatPromptUtil.getTitleSummaryPrompt(event.language(), event.userPrompt(), event.aiResponse());
-                return baseChatClient.prompt().user(summaryPrompt).call().content();
+                return statelessChatClient.prompt()
+                    .user(summaryPrompt)
+                    .call()
+                    .content();
             })
             .subscribeOn(Schedulers.boundedElastic())
             .flatMap(title -> {

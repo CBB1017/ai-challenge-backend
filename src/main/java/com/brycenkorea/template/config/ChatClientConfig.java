@@ -20,9 +20,24 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @RequiredArgsConstructor
 public class ChatClientConfig {
+//    @Bean
+//    public ChatMemory chatMemory(JdbcChatMemoryRepository repository) {
+//        return MessageWindowChatMemory.builder()
+//            .chatMemoryRepository(repository)
+//            .maxMessages(10)
+//            .build();
+//    }
+
     @Bean
     public ChatMemory chatMemory(JdbcChatMemoryRepository repository) {
-        return MessageWindowChatMemory.builder().chatMemoryRepository(repository).maxMessages(20).build();
+        // 1. 기존 로직: DB 저장소(JDBC)와 연결된 기본 ChatMemory 객체 생성
+        ChatMemory baseMemory = MessageWindowChatMemory.builder()
+            .chatMemoryRepository(repository)
+            .maxMessages(10)
+            .build();
+
+        // 2. 적용 로직: 생성된 기본 Memory를 OptimizedChatMemory로 감싸서 반환
+        return new OptimizedChatMemory(baseMemory);
     }
 
     @Bean
@@ -32,7 +47,6 @@ public class ChatClientConfig {
         AsyncMcpToolCallbackProvider mcpTools
     )
     {
-
         String systemText = """
                 너는 우리 회사의 친절하고 똑똑한 AI 비서야.
                 
@@ -59,6 +73,40 @@ public class ChatClientConfig {
         return builder.defaultSystem(systemText)
             .defaultToolCallbacks(mcpTools)
             .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+            .build();
+    }
+
+    @Bean
+    public ChatClient statelessChatClient(
+        ChatClient.Builder builder,
+        AsyncMcpToolCallbackProvider mcpTools
+    )
+    {
+        String systemText = """
+                너는 우리 회사의 친절하고 똑똑한 AI 비서야.
+                
+                [시스템 정보]
+                - 현재 날짜 및 시간: {currentDateTime}
+                - 현재 요일: {currentDayOfWeek}
+                
+                [절대 원칙]
+                1. 상기 [시스템 정보]의 날짜와 요일을 절대적으로 신뢰한다.
+                2. 오늘이 일요일이면 내일은 반드시 월요일이다. 임의로 요일을 판단하지 않는다.
+                3. 날짜 계산 시 '내일', '모레', '다음주' 등을 계산할 때 시스템 날짜를 기준으로 산술적으로 계산한다.
+                4. 외부 정보 확인이 필요하면 반드시 도구를 먼저 호출한다.
+                5. 추측하지 않는다.
+                6. 특정 시간에 작업을 예약해달라는 요청이 오면 공유물(회의실 등) 예약이나 스케줄러 도구를 사용한다.
+                
+                Context information is below.
+                
+                ---------------------
+                {context}
+                ---------------------
+                
+                """;
+
+        return builder.defaultSystem(systemText)
+            .defaultToolCallbacks(mcpTools)
             .build();
     }
 
