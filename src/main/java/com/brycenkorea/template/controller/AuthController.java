@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 
@@ -47,13 +48,17 @@ public class AuthController {
                 return loginService.processUserSession(res.user(), res.cookies());
             })
             .flatMap(authResult -> {
-                // 비동기 작업 실행 (응답 대기 안 함)
-                Mono.fromRunnable(() -> {
-                    boardService.fetchAndSaveAllBoardData(loginRequest.getUserId(), true)
-                        .subscribe(null, e -> log.error("Board Error", e));
-                    birthdayService.fetchAndSaveBirthdays(loginRequest.getUserId(), true)
-                        .subscribe(null, e -> log.error("Birthday Error", e));
-                }).subscribeOn(Schedulers.boundedElastic()).subscribe();
+                // 5초 지연 후 비동기 작업 실행
+                Mono.zip(
+                        boardService.fetchAndSaveAllBoardData(loginRequest.getUserId(), true),
+                        birthdayService.fetchAndSaveBirthdays(loginRequest.getUserId(), true)
+                    )
+                    .delayElement(Duration.ofSeconds(5)) // 5초 지연
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .subscribe(
+                        null,
+                        e -> log.error("비동기 작업 중 오류 발생", e)
+                    );
 
                 return Mono.just(authResult);
             });
