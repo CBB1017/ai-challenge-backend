@@ -8,6 +8,7 @@ import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -43,6 +44,10 @@ public class SseBroadcaster {
                 userSinks.remove(userId);
             })
             .doOnTerminate(() -> userSinks.remove(userId));
+    }
+
+    public Set<String> getConnectedUserIds() {
+        return userSinks.keySet();
     }
 
     /**

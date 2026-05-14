@@ -7,6 +7,8 @@ import org.jobrunr.scheduling.JobScheduler;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -14,32 +16,21 @@ public class BoardScheduler {
 
     private final BoardService boardService;
     private final JobScheduler jobScheduler;
+    private final SseBroadcaster sseBroadcaster;
 
     @PostConstruct
     public void init() {
-        // 서버 기동 시 Redis에 데이터가 없는 경우 즉시 한 번 실행
-        log.info("Starting initial board posts check...");
-        boardService.getBoardAndRecentPosts()
-            .flatMap(posts -> {
-                boolean isEffectivelyEmpty = posts.isEmpty() || 
-                    (posts.get("recent") == null || posts.get("recent").isEmpty()) && 
-                    posts.entrySet().stream()
-                        .filter(e -> !e.getKey().equals("recent"))
-                        .allMatch(e -> e.getValue().isEmpty());
-                
-                if (isEffectivelyEmpty) {
-                    log.info("No board posts found in Redis or all categories are empty, fetching from crawler...");
-                    return boardService.fetchAndSaveAllBoardData(false);
-                }
-                log.info("Board posts already exist in Redis.");
-                return Mono.empty();
-            })
-            .doOnSuccess(v -> log.info("Initial board posts check completed"))
-            .doOnError(error -> log.error("Initial board posts fetch failed", error))
-            .subscribe();
+        jobScheduler.scheduleRecurrently("30min-board-posts-fetch", "*/30 * * * *", this::scheduledBoardDataUpdate);
+        log.info("30-minute personalized board data fetch job scheduled.");
+    }
 
-        // 30분마다 실행되는 스케줄 등록 (JobRunr)
-        jobScheduler.scheduleRecurrently("30min-board-posts-fetch", "*/30 * * * *", boardService::fetchAndSaveAllBoardDataBlocking);
-        log.info("30-minute board posts fetch job scheduled.");
+    public void scheduledBoardDataUpdate() {
+        Set<String> activeUsers = sseBroadcaster.getConnectedUserIds();
+        log.info("스케줄러 실행: 접속 중인 유저 {}명 데이터 갱신", activeUsers.size());
+
+        for (String userId : activeUsers) {
+            // 접속 중인 유저 각각에 대해 크롤링 & MCP 호출 (블로킹 X)
+            boardService.fetchAndSaveAllBoardData(userId, true).subscribe();
+        }
     }
 }

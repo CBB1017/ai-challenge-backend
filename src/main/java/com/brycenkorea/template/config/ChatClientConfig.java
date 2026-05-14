@@ -29,7 +29,7 @@ public class ChatClientConfig {
 //    }
 
     @Bean
-    public ChatMemory chatMemory(JdbcChatMemoryRepository repository) {
+    public ChatMemory chatMemory(JdbcChatMemoryRepository repository, tools.jackson.databind.json.JsonMapper jsonMapper) {
         // 1. 기존 로직: DB 저장소(JDBC)와 연결된 기본 ChatMemory 객체 생성
         ChatMemory baseMemory = MessageWindowChatMemory.builder()
             .chatMemoryRepository(repository)
@@ -37,7 +37,7 @@ public class ChatClientConfig {
             .build();
 
         // 2. 적용 로직: 생성된 기본 Memory를 OptimizedChatMemory로 감싸서 반환
-        return new OptimizedChatMemory(baseMemory);
+        return new OptimizedChatMemory(baseMemory, jsonMapper);
     }
 
     @Bean
