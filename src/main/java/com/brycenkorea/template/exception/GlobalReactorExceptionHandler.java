@@ -5,6 +5,8 @@ import com.brycenkorea.template.dto.api.CommonResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -17,6 +19,13 @@ import java.util.NoSuchElementException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalReactorExceptionHandler {
+
+    @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
+    public Mono<ResponseEntity<CommonResponse<Void>>> handleAuthenticationException(AuthenticationException ex) {
+        log.warn("Authentication failed: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(CommonResponse.error(ApiResultCode.UNAUTHORIZED, ex.getMessage())));
+    }
 
     // WebFlux에서는 WebExchangeBindException이 발생합니다.
     @ExceptionHandler(WebExchangeBindException.class)
