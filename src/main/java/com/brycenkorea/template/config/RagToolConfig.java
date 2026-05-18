@@ -18,7 +18,7 @@ public class RagToolConfig {
     public Function<SearchRequestPayload, String> searchCompanyInfo(VectorStore vectorStore) {
         return request -> {
             // 💡 에러 해결: SearchRequest.query() 메서드를 사용하고 필터링 조건을 설정합니다.
-            var searchRequest = SearchRequest.builder().query(request.query()).topK(3).similarityThreshold(0.7).build();
+            var searchRequest = SearchRequest.builder().query(request.query()).topK(3).similarityThreshold(0.5).build();
 
             return vectorStore.similaritySearch(searchRequest)
                 .stream()

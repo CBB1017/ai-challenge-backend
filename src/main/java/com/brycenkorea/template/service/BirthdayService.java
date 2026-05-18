@@ -45,6 +45,7 @@ public class BirthdayService {
      */
     public Mono<Void> fetchAndSaveBirthdays(String userId, boolean shouldNotify) {
 
+        if(userId == null) return Mono.empty();
         return Mono.fromCallable(() -> {
             log.info("MCP 도구를 통한 생일자 데이터 fetch 시작 (User: {})", userId);
             return statelessChatClient.prompt()
